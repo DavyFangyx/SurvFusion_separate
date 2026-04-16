@@ -1,0 +1,17 @@
+# Python cache and virtual env
+__pycache__/
+*.py[cod]
+.venv/
+
+# Editor settings
+.vscode/
+
+# Local archives
+*.zip
+*.rar
+
+# User-requested excluded directories
+datasets_csv/
+results/results/
+splits/
+SurvPGC_Workspace/
