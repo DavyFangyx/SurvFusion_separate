@@ -2,105 +2,168 @@
 set -o pipefail
 
 # ============================================================
-# 一键并行运行所有模型对比实验
-# 修改下方【参数配置区】后直接运行: 
-# conda activate SurvPGC
-# bash run_all_models.sh GPU=
-# ============================================================
-
-# ============================================================
-# 【参数配置区】—— 每次实验只需修改这里
+# 一键运行模型对比实验
+# 用法:
+#   conda activate SurvPGC
+#   bash run_all_models.sh [GPU=0]
+#
+# 结果目录结构:
+#   results/{EXP_GROUP}/{RUN_NAME}/{modality}/
+#     test_result.csv     split_*_results.pkl     experiment.txt
+#
+# EXP_GROUP 对应 4 类实验:
+#   clinic_test    — 不同 clinic 数据对照
+#   gene_test      — 不同 gene 数据对照
+#   param_tuning   — 单模型超参调整
+#   ablation       — 消融实验
 # ============================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"  # 确保相对路径（splits/、main.py）始终可找到
+cd "$SCRIPT_DIR"
 
-# 命令行指定 GPU
-# 不指定则使用系统默认（所有卡）
+# ---------- GPU 指定 ----------
 for arg in "$@"; do
     [[ $arg == GPU=* ]] && export CUDA_VISIBLE_DEVICES="${arg#GPU=}"
 done
 
-# TEST_SET 代表本次测试系列（如 atcga_kirc / tcga_kirc），日志将汇集到 results/summary_${TEST_SET}_logs/
-TEST_SET="stcga_kirc"
-# RUN_NAME 代表同系列内的具体实验变体（如不同 clinic_dir），只影响日志文件名
-RUN_NAME="O_origin"
-CLINIC_DIR="$SCRIPT_DIR/SurvPGC_Workspace/C/O_origin/npy"
+# ============================================================
+# 【参数配置区】—— 每次实验只需修改这里
+#
+# 推荐的四类实验设计：
+# 1) clinic_test:
+#    - 改 CLINIC_EXPERIMENT
+#    - 跑所有包含 C 模态的模型
+#    - RUN_NAME 建议与 clinic 特征名保持一致
+#
+# 2) gene_test:
+#    - 改 GENE_EXPERIMENT / TYPE_OF_PATH
+#    - 跑所有包含 G 模态的模型
+#    - RUN_NAME 建议与 gene 特征名保持一致
+#
+# 3) param_tuning:
+#    - 固定数据与模型，只改超参数
+#    - RUN_NAME 建议编码主要超参，例如 lr5e4_reg1e3
+#
+# 4) ablation:
+#    - 固定最佳数据与超参，只改模型开关
+#    - RUN_NAME 建议描述消融主题，例如 main_vs_wc
+# ============================================================
+
+# EXP_GROUP: 本次属于哪类实验
+#   clinic_test | gene_test | param_tuning | ablation | default
+EXP_GROUP="clinic_test"
+
+# RUN_NAME: 同系列内的具体变体名。
+# 若留空，会按实验类型自动生成。
+RUN_NAME=""
+
+# ---- 数据集配置 ----
+STUDY="tcga_kirc"
+WHICH_SPLITS="5foldcv"
+
+# clinic 特征目录（实验一改这里）:
 # A_profile  B_noNM     B_noTM   B_staging    D_noProg
 # B_noM      B_noStage  B_noTN   C_treatment  O_origin
 # B_noN      B_noT      B_noTNM  D_clinical_summary
-# 【模型开关】—— 将不需要运行的模型设为 false
-# 单模态 G（只用基因组）
-RUN_OMICS=false
-RUN_SNN=false
-# 单模态 WSI（只用病理图像）
-RUN_ABMIL_WSI=false
-RUN_MLP_WSI=false
-RUN_TRANSMIL_WSI=false
-# 单模态 C
-RUN_CLINIC_MLP=false
-RUN_CLINIC_SNN=false
-# 多模态（WSI + G）
-RUN_PORPOISE=false
-RUN_SURVPATH=false
-# 多模态（WSI + G + C）
-RUN_SURVPGC_F=false
-RUN_SURVFUSION_F=false
-# SURVFUSION_F消融
-RUN_SURVFUSION_MLPCONTACT=false    # 消融（WSI + G + C 拼接后MLP）
-RUN_SURVFUSION_MHSACONCAT=false    # 消融（WSI + G + C 拼接后多头自注意力）
-RUN_SURVFUSION_NOALIGN=false       # 消融（WSI + G + C 无对齐损失）
-RUN_SURVFUSION_SEPARATE=true     # 两阶段分离训练（Stage1: 对齐损失, Stage2: 生存损失）
-# 消融（WSI + C（去掉G））
-RUN_SURVPC=false
-RUN_SURVPC_F=false
-# 消融（WSI + C 直接拼接（无注意力））
-RUN_MLPPC_CONCAT=false
-# 消融（G + C（去掉WSI））
-RUN_SURVGC_F=false
+# O_simple
+CLINIC_EXPERIMENT="O_origin"
 
+# gene 特征目录（实验二改这里）:
+# scFoundation_embedding_cell_norm
+# scFoundation_embedding_cell_raw
+# scFoundation_embedding_gene_norm
+# scFoundation_embedding_gene_raw
+GENE_EXPERIMENT="scFoundation_embedding_cell_norm"
 
-# STUDY 必须与 splits/5foldcv/ 下的目录名一致，代码内部会用它构建路径
-STUDY="tcga_kirc"
-LABEL_FILE="$SCRIPT_DIR/datasets_csv/metadata/tcga_kirc.csv"
-OMICS_DIR="$SCRIPT_DIR/datasets_csv/raw_rna_data/combine/kirc"
-DATA_ROOT_DIR="$SCRIPT_DIR/SurvPGC_Workspace/P/uni_v1"
-GENE_DIR="$SCRIPT_DIR/SurvPGC_Workspace/G/max_seq_len_2048/npy"
-SPLIT_DIR="$SCRIPT_DIR/splits/5foldcv/tcga_kirc"
+# WSI 特征目录
+WSI_EXPERIMENT="uni_v1"
 
-
+# ---- 训练超参 ----
 TYPE_OF_PATH="combine"
-K=1
+K=5
 MAX_EPOCHS=20
-MAX_EPOCHS_STAGE1=40
-BATCH_SIZE_STAGE1=32
 BAG_LOSS="nll_surv"
 LR=0.0005
-LR_STAGE1=0.0001
 REG=0.001
 SEED=1
 
-# porpoise 专用 fusion 参数（concat 或 bilinear）
+# porpoise 专用 fusion 参数
 PORPOISE_FUSION="bilinear"
 
+# ---- 模型开关 ----
+# 单模态 C
+RUN_CLINIC_MLP=false
+RUN_CLINIC_SNN=false
+RUN_CLINIC_COX=false
+# 单模态 G
+RUN_OMICS=false
+RUN_SNN=false
+# 单模态 WSI
+RUN_MLP_WSI=false
+RUN_ABMIL_WSI=false
+RUN_TRANSMIL_WSI=false
+# 多模态基线 WSI+G
+RUN_PORPOISE=false
+RUN_SURVPATH=false
+
+# 主模型 WSI+G+C
+RUN_SURVPGC_F=true
+# 消融：WSI+C（去掉 G）
+RUN_SURVPC=false
+RUN_SURVPC_F=false
+# 消融：WSI+C 直接拼接
+RUN_MLPPC_CONCAT=false
 
 # ============================================================
 # 以下无需修改
 # ============================================================
 
-RESULTS_DIR="./results"
-TMP_DIR="/tmp/survpgc_${TEST_SET}_${RUN_NAME}"
-SET_LOG_DIR="./results/summary_${TEST_SET}_logs"
-SUMMARY_LOG="${SET_LOG_DIR}/summary_${TEST_SET}_${RUN_NAME}.log"
-LOSS_CURVE_DIR="${SET_LOG_DIR}/loss_curves_${RUN_NAME}"
-EXPORT_LOSS_CURVES=true
-RESULTS_ROOT_DISPLAY="$SCRIPT_DIR/results/results"
+RESULTS_BASE="./results"
+STUDY_SUBTYPE="${STUDY#tcga_}"
 
-mkdir -p "$TMP_DIR" "$RESULTS_DIR" "$SET_LOG_DIR" "$LOSS_CURVE_DIR"
+LABEL_FILE="$SCRIPT_DIR/datasets_csv/metadata/${STUDY}.csv"
+OMICS_DIR="$SCRIPT_DIR/datasets_csv/raw_rna_data/${TYPE_OF_PATH}/${STUDY_SUBTYPE}"
+DATA_ROOT_DIR="$SCRIPT_DIR/SurvPGC_Workspace/P/${WSI_EXPERIMENT}"
+CLINIC_DIR="$SCRIPT_DIR/SurvPGC_Workspace/C/${CLINIC_EXPERIMENT}"
+GENE_DIR="$SCRIPT_DIR/SurvPGC_Workspace/G/${GENE_EXPERIMENT}"
+SPLIT_DIR="$SCRIPT_DIR/splits/${WHICH_SPLITS}/${STUDY}"
 
-echo "TEST_SET: $TEST_SET  |  RUN_NAME: $RUN_NAME" > "$SUMMARY_LOG"
-echo "Start time: $(date)" >> "$SUMMARY_LOG"
-echo "" >> "$SUMMARY_LOG"
+if [ -z "$RUN_NAME" ]; then
+    case "$EXP_GROUP" in
+        clinic_test)
+            RUN_NAME="$CLINIC_EXPERIMENT"
+            ;;
+        gene_test)
+            RUN_NAME="${GENE_EXPERIMENT}_${TYPE_OF_PATH}"
+            ;;
+        param_tuning)
+            RUN_NAME="lr${LR}_reg${REG}_ep${MAX_EPOCHS}_seed${SEED}"
+            ;;
+        ablation)
+            RUN_NAME="model_ablation"
+            ;;
+        *)
+            RUN_NAME="default"
+            ;;
+    esac
+fi
+
+require_path() {
+    local target_path=$1
+    local description=$2
+
+    if [ ! -e "$target_path" ]; then
+        echo "[ERROR] ${description} 不存在: $target_path"
+        exit 1
+    fi
+}
+
+require_path "$LABEL_FILE" "label_file"
+require_path "$OMICS_DIR" "omics_dir"
+require_path "$DATA_ROOT_DIR" "data_root_dir"
+require_path "$CLINIC_DIR" "clinic_dir"
+require_path "$GENE_DIR" "gene_dir"
+require_path "$SPLIT_DIR" "split_dir"
 
 TOTAL_MODELS=0
 DONE_MODELS=0
@@ -110,137 +173,77 @@ $RUN_SNN          && count_model
 $RUN_ABMIL_WSI    && count_model
 $RUN_MLP_WSI      && count_model
 $RUN_TRANSMIL_WSI && count_model
+$RUN_CLINIC_MLP   && count_model
+$RUN_CLINIC_SNN   && count_model
+$RUN_CLINIC_COX   && count_model
 $RUN_PORPOISE     && count_model
 $RUN_SURVPATH     && count_model
 $RUN_SURVPGC_F    && count_model
 $RUN_SURVPC       && count_model
 $RUN_SURVPC_F     && count_model
 $RUN_MLPPC_CONCAT && count_model
-$RUN_SURVGC_F     && count_model
-$RUN_CLINIC_MLP   && count_model
-$RUN_CLINIC_SNN   && count_model
+
+if [ "$TOTAL_MODELS" -eq 0 ]; then
+    echo "[ERROR] 没有启用任何模型，请把至少一个 RUN_* 开关设为 true"
+    exit 1
+fi
 
 launch_model() {
     local modality=$1
-    local extra_args=$2
-    local tmp_out="$TMP_DIR/${modality}.log"
+    shift
     local exit_code
+    local cmd=(
+        python -u main.py
+        --modality "$modality"
+        --study "$STUDY"
+        --exp_group "$EXP_GROUP"
+        --run_name "$RUN_NAME"
+        --results_dir "$RESULTS_BASE"
+        --label_file "$LABEL_FILE"
+        --omics_dir "$OMICS_DIR"
+        --data_root_dir "$DATA_ROOT_DIR"
+        --clinic_dir "$CLINIC_DIR"
+        --gene_dir "$GENE_DIR"
+        --split_dir "$SPLIT_DIR"
+        --which_splits "$WHICH_SPLITS"
+        --type_of_path "$TYPE_OF_PATH"
+        --k "$K"
+        --max_epochs "$MAX_EPOCHS"
+        --bag_loss "$BAG_LOSS"
+        --lr "$LR"
+        --reg "$REG"
+        --seed "$SEED"
+    )
 
     echo "[START] $modality"
+    echo "        results/${EXP_GROUP}/${RUN_NAME}/${modality}/"
 
-    python -u main.py \
-      --modality "$modality" \
-      --study "$STUDY" \
-            --test_set "$TEST_SET" \
-            --run_name "$RUN_NAME" \
-      --label_file "$LABEL_FILE" \
-      --omics_dir "$OMICS_DIR" \
-      --data_root_dir "$DATA_ROOT_DIR" \
-      --clinic_dir "$CLINIC_DIR" \
-      --gene_dir "$GENE_DIR" \
-      --split_dir "$SPLIT_DIR" \
-      --type_of_path "$TYPE_OF_PATH" \
-      --k "$K" \
-      --max_epochs "$MAX_EPOCHS" \
-      --bag_loss "$BAG_LOSS" \
-      --lr "$LR" \
-      --reg "$REG" \
-      --seed "$SEED" \
-      --results_dir "$RESULTS_DIR" \
-      $extra_args \
-      2>&1 | tee "$tmp_out"
-        exit_code=${PIPESTATUS[0]}
+    if [ "$#" -gt 0 ]; then
+        cmd+=("$@")
+    fi
 
-        if [ "$exit_code" -ne 0 ]; then
-                printf "%s:\n[运行失败，exit code: %s]\n日志: %s\n\n" "$modality" "$exit_code" "$tmp_out" >> "$SUMMARY_LOG"
-                echo "[FAIL] $modality  | exit code: $exit_code | log: $tmp_out"
-                return "$exit_code"
-        fi
+    "${cmd[@]}"
+    exit_code=$?
 
-    cindex_line=$(grep -i "Final test c-index" "$tmp_out" | tail -1)
-    result="${cindex_line:-[未找到 c-index，exit code: $?]}"
-
-    if $EXPORT_LOSS_CURVES; then
-        curve_csv="${LOSS_CURVE_DIR}/${modality}_${RUN_NAME}_loss_curve.csv"
-        python - "$tmp_out" "$curve_csv" <<'PY'
-import csv
-import re
-import sys
-
-log_path, out_csv = sys.argv[1], sys.argv[2]
-rows = []
-current_stage = "default"
-epoch_stage_counter = {"stage1": 0, "stage2": 0, "default": 0}
-pending = {}
-
-re_stage1 = re.compile(r"Stage\s*1")
-re_stage2 = re.compile(r"Stage\s*2")
-re_train = re.compile(r"Epoch:\s*(\d+),\s*train_loss:\s*([0-9.]+)(?:,\s*train_c_index:\s*([0-9.]+))?")
-re_val_align = re.compile(r"Val\s+Align\s+Loss:\s*([0-9.]+)")
-re_val_stage2 = re.compile(r"Val\s+Loss:\s*([0-9.]+),\s*Val\s+C-Index:\s*([0-9.]+)")
-
-with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
-    for line in f:
-        if re_stage1.search(line):
-            current_stage = "stage1"
-            continue
-        if re_stage2.search(line):
-            current_stage = "stage2"
-            continue
-
-        m = re_train.search(line)
-        if m:
-            printed_epoch = int(m.group(1))
-            train_loss = float(m.group(2))
-            train_c_index = m.group(3)
-            train_c_index = float(train_c_index) if train_c_index is not None else ""
-            epoch_stage_counter[current_stage] += 1
-            stage_epoch = epoch_stage_counter[current_stage] - 1
-            rec = {
-                "stage": current_stage,
-                "epoch": stage_epoch,
-                "printed_epoch": printed_epoch,
-                "train_loss": train_loss,
-                "val_loss": "",
-                "train_c_index": train_c_index,
-                "val_c_index": "",
-            }
-            rows.append(rec)
-            pending[current_stage] = rec
-            continue
-
-        m = re_val_align.search(line)
-        if m and "stage1" in pending:
-            pending["stage1"]["val_loss"] = float(m.group(1))
-            continue
-
-        m = re_val_stage2.search(line)
-        if m and "stage2" in pending:
-            pending["stage2"]["val_loss"] = float(m.group(1))
-            pending["stage2"]["val_c_index"] = float(m.group(2))
-            continue
-
-with open(out_csv, "w", newline="", encoding="utf-8") as f:
-    writer = csv.DictWriter(
-        f,
-        fieldnames=["stage", "epoch", "printed_epoch", "train_loss", "val_loss", "train_c_index", "val_c_index"],
-    )
-    writer.writeheader()
-    writer.writerows(rows)
-PY
+    if [ "$exit_code" -ne 0 ]; then
+        echo "[FAIL] $modality  | exit code: $exit_code"
+        return "$exit_code"
     fi
 
     DONE_MODELS=$((DONE_MODELS + 1))
-    printf "%s:\n%s\n\n" "$modality" "$result" >> "$SUMMARY_LOG"
-    echo "[DONE] $modality  ($DONE_MODELS/$TOTAL_MODELS)  |  $result"
+    echo "[DONE] $modality  ($DONE_MODELS/$TOTAL_MODELS)"
 }
 
 echo "========================================================"
-echo "  实验配置: STUDY=$STUDY  TEST_SET=$TEST_SET  RUN_NAME=$RUN_NAME"
+echo "  实验配置: STUDY=$STUDY  EXP_GROUP=$EXP_GROUP  RUN_NAME=$RUN_NAME"
 [ -n "$CUDA_VISIBLE_DEVICES" ] && echo "  GPU: $CUDA_VISIBLE_DEVICES" || echo "  GPU: 系统默认"
+echo "  CLINIC_EXPERIMENT: $CLINIC_EXPERIMENT"
+echo "  GENE_EXPERIMENT:   $GENE_EXPERIMENT"
+echo "  WSI_EXPERIMENT:    $WSI_EXPERIMENT"
+echo "  TYPE_OF_PATH:      $TYPE_OF_PATH"
+echo "  WHICH_SPLITS:      $WHICH_SPLITS"
 echo "  开始时间: $(date)"
-echo "  汇总日志: $SUMMARY_LOG"
-echo "  模型结果目录根: $RESULTS_ROOT_DISPLAY"
+echo "  结果根目录: $SCRIPT_DIR/results/${EXP_GROUP}/${RUN_NAME}/"
 echo "========================================================"
 echo ""
 
@@ -253,41 +256,28 @@ $RUN_ABMIL_WSI    && launch_model "abmil_wsi"
 $RUN_MLP_WSI      && launch_model "mlp_wsi"
 $RUN_TRANSMIL_WSI && launch_model "transmil_wsi"
 
-# ---------- 多模态基线 WSI + G ----------
-$RUN_PORPOISE     && launch_model "porpoise"     "--fusion $PORPOISE_FUSION"
+# ---------- 单模态 C ----------
+$RUN_CLINIC_MLP   && launch_model "clinic_mlp"
+$RUN_CLINIC_SNN   && launch_model "clinic_snn"
+$RUN_CLINIC_COX   && launch_model "clinic_cox" --bag_loss "cox_surv"
+
+# ---------- 多模态基线 WSI+G ----------
+$RUN_PORPOISE     && launch_model "porpoise" --fusion "$PORPOISE_FUSION"
 $RUN_SURVPATH     && launch_model "survpath"
 
-# ---------- 主模型 WSI + G + C ----------
+# ---------- 主模型 WSI+G+C ----------
 $RUN_SURVPGC_F    && launch_model "survpgc_f"
-$RUN_SURVFUSION_F          && launch_model "survfusion_f"
 
-# ---------- 消融：融合策略 & 对齐损失 ----------
-$RUN_SURVFUSION_MLPCONTACT && launch_model "survfusion_mlpcontact"
-$RUN_SURVFUSION_MHSACONCAT && launch_model "survfusion_mhsaconcat"
-$RUN_SURVFUSION_NOALIGN    && launch_model "survfusion_noalign"
-$RUN_SURVFUSION_SEPARATE   && launch_model "survfusion_separate" "--lr_stage1 $LR_STAGE1 --max_epochs_stage1 $MAX_EPOCHS_STAGE1 --batch_size_stage1 $BATCH_SIZE_STAGE1"
-
-# ---------- 消融：WSI + C ----------
+# ---------- 消融：WSI+C ----------
 $RUN_SURVPC       && launch_model "survpc"
 $RUN_SURVPC_F     && launch_model "survpc_f"
 
-# ---------- 消融：WSI + C 拼接 ----------
+# ---------- 消融：WSI+C 直接拼接 ----------
 $RUN_MLPPC_CONCAT && launch_model "mlppc_concat"
 
-# ---------- 消融：G + C ----------
-$RUN_SURVGC_F     && launch_model "survgc_f"
-
-# ---------- 消融：只用 C ----------
-$RUN_CLINIC_MLP   && launch_model "clinic_mlp"
-$RUN_CLINIC_SNN   && launch_model "clinic_snn"
-
 echo ""
 echo "========================================================"
-echo "  所有模型运行完毕"
-echo "  结束时间: $(date)" | tee -a "$SUMMARY_LOG"
-echo "  汇总日志: $SUMMARY_LOG"
-echo "  Loss 曲线目录: $LOSS_CURVE_DIR"
+echo "  所有模型运行完毕  ($DONE_MODELS/$TOTAL_MODELS)"
+echo "  结束时间: $(date)"
+echo "  结果根目录: $SCRIPT_DIR/results/${EXP_GROUP}/${RUN_NAME}/"
 echo "========================================================"
-echo ""
-echo "===== 汇总结果 ====="
-cat "$SUMMARY_LOG"

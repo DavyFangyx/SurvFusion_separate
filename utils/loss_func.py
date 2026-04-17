@@ -63,6 +63,16 @@ class NLLDiffSurvLoss(nn.Module):
         return nll_diff_loss
 
 
+class CoxSurvLoss(nn.Module):
+    def __init__(self, eps=1e-7, reduction='mean'):
+        super().__init__()
+        self.eps = eps
+        self.reduction = reduction
+
+    def __call__(self, h, t, c):
+        return cox_ph_loss(h=h, t=t, c=c, eps=self.eps, reduction=self.reduction)
+
+
 
 # TODO: document better and clean up
 def nll_loss(h, y, c, alpha=0.0, eps=1e-7, reduction='sum'):
@@ -158,5 +168,38 @@ def diff_loss(input1, input2, eps=1e-6):
     loss = torch.mean((input1_l2.t().mm(input2_l2)).pow(2))
 
     return loss
+
+
+def cox_ph_loss(h, t, c, eps=1e-7, reduction='mean'):
+    log_risk = h.reshape(-1)
+    event_time = t.reshape(-1)
+    censor = c.reshape(-1)
+    event = 1.0 - censor
+
+    if torch.sum(event) == 0:
+        return log_risk.sum() * 0.0
+
+    unique_event_times = torch.unique(event_time[event > 0], sorted=True)
+    neg_log_likelihood = log_risk.new_tensor(0.0)
+    observed_events = torch.sum(event)
+
+    for current_time in unique_event_times:
+        event_mask = (event_time == current_time) & (event > 0)
+        risk_mask = event_time >= current_time
+
+        event_count = torch.sum(event_mask)
+        if event_count == 0:
+            continue
+
+        log_risk_events = torch.sum(log_risk[event_mask])
+        log_risk_set = torch.logsumexp(log_risk[risk_mask], dim=0)
+        neg_log_likelihood = neg_log_likelihood + event_count * log_risk_set - log_risk_events
+
+    if reduction == 'mean':
+        neg_log_likelihood = neg_log_likelihood / observed_events.clamp(min=eps)
+    elif reduction != 'sum':
+        raise ValueError("Bad input for reduction: {}".format(reduction))
+
+    return neg_log_likelihood
 
 

@@ -794,7 +794,7 @@ class SurvivalDataset(Dataset):
             gene_features = self._load_gene_embs_from_path(self.gene_dir, slide_ids)
             return (torch.zeros((1,1)), gene_features, label, event_time, c, clinical_data)
 
-        elif self.modality in ['clinic_mlp', 'clinic_snn']:
+        elif self.modality in ['clinic_mlp', 'clinic_snn', 'clinic_cox']:
             clinic_features = self._load_clinic_embs_from_prompt(self.clinic_dir, slide_ids)
             return (torch.zeros((1,1)), clinic_features, label, event_time, c, clinical_data)
 

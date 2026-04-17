@@ -170,29 +170,37 @@ def _seed_torch(seed=7):
 
 def _create_results_dir(args):
     r"""
-    Creates a dir to store results for this experiment. Adds .gitignore 
-    
+    Creates a dir to store results for this experiment.
+
+    Directory structure:
+        {results_dir}/{exp_group}/{run_name}/{modality}/
+
+    The verbose param_code is no longer part of the path; it is written to
+    experiment.txt inside the run dir so it remains discoverable.
+
     Args:
         - args: argspace.Namespace
-    
+
     Return:
-        - None 
-    
+        - None
+
     """
-    args.results_dir = os.path.join("./results", args.results_dir) # create an experiment specific subdir in the results dir 
-    if not os.path.isdir(args.results_dir):
-        os.makedirs(args.results_dir, exist_ok=True)
-        #---> add gitignore to results dir
-        f = open(os.path.join(args.results_dir, ".gitignore"), "w")
-        f.write("*\n")
-        f.write("*/\n")
-        f.write("!.gitignore")
-        f.close()
-    
-    #---> results for this specific experiment
-    args.results_dir = os.path.join(args.results_dir, args.param_code)
-    if not os.path.isdir(args.results_dir):
-        os.mkdir(args.results_dir)
+    exp_group = getattr(args, 'exp_group', 'default')
+    run_name  = getattr(args, 'run_name',  'default')
+
+    args.results_dir = os.path.join(
+        args.results_dir,   # base (e.g. ./results)
+        exp_group,          # clinic_test / gene_test / param_tuning / ablation / default
+        run_name,           # O_origin / lr_0001 / …
+        args.modality,      # survpgc_f / survgc_f / …
+    )
+    os.makedirs(args.results_dir, exist_ok=True)
+
+    # Add a .gitignore at the top-level results/ directory (once)
+    gitignore_path = os.path.join(args.results_dir.split(os.sep)[0], ".gitignore")
+    if not os.path.exists(gitignore_path):
+        with open(gitignore_path, "w") as f:
+            f.write("*\n*/\n!.gitignore")
 
 def _get_start_end(args):
     r"""
@@ -562,7 +570,7 @@ def _get_split_loader(args, split_dataset, training = False, testing = False, we
     
     if args.modality in ["omics", "snn"]:
         collate_fn = _collate_omics
-    elif args.modality in ['clinic_mlp', 'clinic_snn']:
+    elif args.modality in ['clinic_mlp', 'clinic_snn', 'clinic_cox']:
         collate_fn = _collate_clinic_f
     elif args.modality in ["abmil_wsi", "mlp_wsi", "transmil_wsi"]:
         collate_fn = _collate_wsi_omics
@@ -581,18 +589,22 @@ def _get_split_loader(args, split_dataset, training = False, testing = False, we
     else:
         raise NotImplementedError
 
+    effective_batch_size = batch_size
+    if args.bag_loss == 'cox_surv':
+        effective_batch_size = max(1, len(split_dataset))
+
     if not testing:
         if training:
             if weighted:
                 weights = _make_weights_for_balanced_classes_split(split_dataset)
-                loader = DataLoader(split_dataset, batch_size=batch_size, sampler = WeightedRandomSampler(weights, len(weights)), collate_fn = collate_fn, drop_last=False, **kwargs)	
+                loader = DataLoader(split_dataset, batch_size=effective_batch_size, sampler = WeightedRandomSampler(weights, len(weights)), collate_fn = collate_fn, drop_last=False, **kwargs)	
             else:
-                loader = DataLoader(split_dataset, batch_size=batch_size, sampler = RandomSampler(split_dataset), collate_fn = collate_fn, drop_last=False, **kwargs)
+                loader = DataLoader(split_dataset, batch_size=effective_batch_size, sampler = RandomSampler(split_dataset), collate_fn = collate_fn, drop_last=False, **kwargs)
         else:
-            loader = DataLoader(split_dataset, batch_size=batch_size, sampler = SequentialSampler(split_dataset), collate_fn = collate_fn, drop_last=False, **kwargs)
+            loader = DataLoader(split_dataset, batch_size=effective_batch_size, sampler = SequentialSampler(split_dataset), collate_fn = collate_fn, drop_last=False, **kwargs)
 
     else:
         ids = np.random.choice(np.arange(len(split_dataset), int(len(split_dataset)*0.1)), replace = False)
-        loader = DataLoader(split_dataset, batch_size=batch_size, sampler = SubsetSequentialSampler(ids), collate_fn = collate_fn, drop_last=False, **kwargs )
+        loader = DataLoader(split_dataset, batch_size=effective_batch_size, sampler = SubsetSequentialSampler(ids), collate_fn = collate_fn, drop_last=False, **kwargs )
 
     return loader

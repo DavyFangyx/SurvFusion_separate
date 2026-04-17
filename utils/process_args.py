@@ -25,7 +25,12 @@ def _process_args():
     parser.add_argument('--study', type=str, default=DEFAULT_STUDY, help='study name')
     parser.add_argument('--task', type=str, default='survival', choices=['survival'])
     parser.add_argument('--n_classes', type=int, default=4, help='number of classes (4 bins for survival)')
-    parser.add_argument('--results_dir', default=DEFAULT_RESULTS_DIR, help='results directory (default: ./results)')
+    parser.add_argument('--results_dir', default=DEFAULT_RESULTS_DIR, help='base results directory (default: ./results)')
+    parser.add_argument('--exp_group', type=str, default='default',
+                        choices=['clinic_test', 'gene_test', 'param_tuning', 'ablation', 'default'],
+                        help='experiment group; results are stored under results/{exp_group}/{run_name}/{modality}/')
+    parser.add_argument('--run_name', type=str, default='default',
+                        help='run name within the experiment group (e.g. O_origin, lr_0001)')
     parser.add_argument("--type_of_path", type=str, default="combine", choices=["xena", "hallmarks", "combine"])
     parser.add_argument('--testing', action='store_true', default=False, help='debugging tool')
 
@@ -51,7 +56,7 @@ def _process_args():
                     +'instead of infering from the task and label_frac argument (default: None)')
     parser.add_argument('--which_splits', type=str, default="5foldcv", help='where are splits')
         
-    #----> training related 
+    #----> training related
     parser.add_argument('--max_epochs', type=int, default=20, help='maximum number of epochs to train (default: 200)')
     parser.add_argument('--lr', type=float, default=0.0005, help='learning rate (default: 0.0005)')
     parser.add_argument('--seed', type=int, default=1, help='random seed for reproducible experiment (default: 1)')
@@ -66,11 +71,28 @@ def _process_args():
     parser.add_argument('--reg', type=float, default=0.001, help='weight decay / L2 (default: 0.001)')
     parser.add_argument('--lr_scheduler', type=str, default='cosine')
     parser.add_argument('--warmup_epochs', type=int, default=1)
+    # Stage-1 params for two-stage training models (e.g. survfusion_separate)
+    parser.add_argument('--lr_stage1', type=float, default=0.0001, help='learning rate for stage-1 alignment training')
+    parser.add_argument('--max_epochs_stage1', type=int, default=40, help='max epochs for stage-1 alignment training')
+    parser.add_argument('--batch_size_stage1', type=int, default=32, help='batch size for stage-1 alignment training')
 
     #---> model related
     parser.add_argument('--fusion', type=str, default=None, choices=['concat', 'bilinear'])
     parser.add_argument('--modality', type=str, default="survpgc_f",
-                        choices=['survpath', 'survpgc_f', 'omics', 'clinic_mlp', 'snn', 'clinic_snn', 'mlp_wsi', 'transmil_wsi', "abmil_wsi", 'survpc_f', 'survpc', 'coattn', 'porpoise', 'survpath_gc', 'mlppc_concat'])
+                        choices=[
+                            # unimodal G
+                            'omics', 'snn',
+                            # unimodal WSI
+                            'abmil_wsi', 'mlp_wsi', 'transmil_wsi',
+                            # unimodal C
+                            'clinic_mlp', 'clinic_snn', 'clinic_cox',
+                            # multimodal WSI+G baselines
+                            'porpoise', 'survpath', 'mcat',
+                            # main model WSI+G+C
+                            'survpgc_f',
+                            # ablation WSI+C
+                            'survpc', 'survpc_f', 'mlppc_concat',
+                        ])
     parser.add_argument('--return_attn', type=str, default=False, help="Used for heatmap drawing")
     parser.add_argument('--encoding_dim', type=int, default=1024, help='WSI encoding dim, default: 1024')
     parser.add_argument('--use_nystrom', action='store_true', default=False, help='Use Nystrom attentin in SurvPath.')
@@ -151,6 +173,7 @@ survgc_f
 # 消融：只用C
 clinic_mlp
 clinic_snn
+clinic_cox
 '''
 
 

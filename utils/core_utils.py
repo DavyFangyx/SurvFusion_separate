@@ -9,7 +9,7 @@ from models.model_ABMIL import ABMIL
 from models.model_MLPOmics import MLPOmics
 from models.model_MLPWSI import MLPWSI
 from models.model_SNNOmics import SNNOmics
-# from models.model_MCATPathways import MCATPathways
+from models.model_MCATPathways import MCAT_Surv
 from models.model_PORPOISE import PorpoiseMMF
 from models.model_SurvPath import SurvPath
 from models.model_SurvPGC_foundation import SurvPGC_F
@@ -20,6 +20,7 @@ from models.model_TransMIL import TransMIL
 from models.model_SNNSingle import SNNSingle
 from models.model_SurvGC_foundation import SurvGC_F
 from models.model_MLPPC_concat import MLPPC_concat
+from models.model_CoxClinic import CoxClinic
 from sksurv.metrics import concordance_index_censored, concordance_index_ipcw, brier_score, integrated_brier_score, cumulative_dynamic_auc
 from sksurv.util import Surv
 
@@ -35,7 +36,7 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 
 from utils.general_utils import _get_split_loader, _print_network, _save_splits
-from utils.loss_func import NLLSurvLoss, NLLDiffSurvLoss
+from utils.loss_func import NLLSurvLoss, NLLDiffSurvLoss, CoxSurvLoss
 
 import torch.optim as optim
 
@@ -85,6 +86,8 @@ def _init_loss_function(args):
         loss_fn = NLLSurvLoss(alpha=args.alpha_surv)
     elif args.bag_loss == 'nll_diff_surv':
         loss_fn = NLLDiffSurvLoss(beta=args.beta_surv)
+    elif args.bag_loss == 'cox_surv':
+        loss_fn = CoxSurvLoss()
     else:
         raise NotImplementedError
     print('Done!')
@@ -137,7 +140,7 @@ def _init_model(args):
 
     # For prompt-clinic modalities, infer the number of clinic tokens dynamically
     # by peeking at a sample .pt file, so the model handles any [n, 512] shape.
-    _PROMPT_CLINIC_MODALITIES = {'survpgc_f', 'survgc_f', 'survpc_f', 'clinic_mlp'}
+    _PROMPT_CLINIC_MODALITIES = {'survpgc_f', 'survgc_f', 'survpc_f', 'clinic_mlp', 'clinic_cox'}
     if args.modality in _PROMPT_CLINIC_MODALITIES:
         import glob as _glob
         _clinic_files = _glob.glob(os.path.join(args.clinic_dir, '*.pt'))
@@ -174,9 +177,9 @@ def _init_model(args):
         model_dict = {"input_dim": 1024, 'n_classes': args.n_classes}
         model = TransMIL(**model_dict)
 
-    elif args.modality == "coattn":
+    elif args.modality == "mcat":
         model_dict = {'fusion': args.fusion, 'omic_sizes': args.omic_sizes, 'n_classes': args.n_classes}
-        model = MCATPathways(**model_dict)
+        model = MCAT_Surv(**model_dict)
 
     elif args.modality == "porpoise":
         model_dict = {'fusion': args.fusion, 'omic_input_dim': 4999, 'n_classes': args.n_classes}
@@ -215,6 +218,10 @@ def _init_model(args):
     elif args.modality == 'clinic_snn':
         model_dict = {"input_dim": 512, 'n_classes': args.n_classes}
         model = SNNSingle(**model_dict)
+
+    elif args.modality == 'clinic_cox':
+        model_dict = {'input_dim': 512, 'clinic_num_tokens': clinic_num_tokens}
+        model = CoxClinic(**model_dict)
 
     else:
         raise NotImplementedError
@@ -320,7 +327,7 @@ def _unpack_data(modality, device, data):
         data_clinic = None
         y_disc, event_time, censor, clinical_data_list = data[2], data[3], data[4], data[5]
 
-    elif modality in ['clinic_mlp', 'clinic_snn']:
+    elif modality in ['clinic_mlp', 'clinic_snn', 'clinic_cox']:
         data_WSI = data[0]
         mask = None
         data_clinic = data[1].to(device)
@@ -339,7 +346,7 @@ def _unpack_data(modality, device, data):
 
         y_disc, event_time, censor, clinical_data_list = data[2], data[3], data[4], data[5]
 
-    elif modality in ["coattn"]:
+    elif modality in ["mcat"]:
         data_WSI = data[0].to(device)
         data_omic1 = data[1].type(torch.FloatTensor).to(device)
         data_omic2 = data[2].type(torch.FloatTensor).to(device)
@@ -435,15 +442,16 @@ def _process_data_and_forward(args, model, modality, device, data):
     """
     data_WSI, mask, y_disc, event_time, censor, data_omics, clinical_data_list, data_clinic = _unpack_data(modality, device, data)
 
-    if modality in ["coattn"]:
+    if modality in ["mcat"]:
         out = model(
-            x_path=data_WSI, 
-            x_omic1=data_omics[0], 
-            x_omic2=data_omics[1], 
-            x_omic3=data_omics[2], 
-            x_omic4=data_omics[3], 
-            x_omic5=data_omics[4], 
-            x_omic6=data_omics[5]
+            x_path=data_WSI,
+            x_omic1=data_omics[0],
+            x_omic2=data_omics[1],
+            x_omic3=data_omics[2],
+            x_omic4=data_omics[3],
+            x_omic5=data_omics[4],
+            x_omic6=data_omics[5],
+            return_attn=False
             )
 
     elif modality in ["porpoise"]:
@@ -488,7 +496,7 @@ def _process_data_and_forward(args, model, modality, device, data):
         input_args["return_attn"] = False
         out = model(**input_args)
 
-    elif modality in ['clinic_mlp', 'clinic_snn']:
+    elif modality in ['clinic_mlp', 'clinic_snn', 'clinic_cox']:
         input_args = {"x_path": data_WSI.to(device)}
         input_args["x_clinic"] = data_clinic.to(device)
         input_args["return_attn"] = False
@@ -511,7 +519,7 @@ def _process_data_and_forward(args, model, modality, device, data):
         return out, y_disc, event_time, censor, clinical_data_list
 
 
-def _calculate_risk(h):
+def _calculate_risk(h, bag_loss='nll_surv'):
     r"""
     Take the logits of the model and calculate the risk for the patient 
     
@@ -522,6 +530,10 @@ def _calculate_risk(h):
         - risk : torch.Tensor 
     
     """
+    if bag_loss == 'cox_surv':
+        risk = h.reshape(-1).detach().cpu().numpy()
+        return risk, None
+
     hazards = torch.sigmoid(h)
     survival = torch.cumprod(1 - hazards, dim=1)
     risk = -torch.sum(survival, dim=1).detach().cpu().numpy()
@@ -592,17 +604,24 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
         elif args.bag_loss == 'nll_diff_surv':
             tensor1, tensor2, h, y_disc, event_time, censor, clinical_data_list = _process_data_and_forward(args, model, modality, device, data)
             loss = loss_fn(tensor1, tensor2, h=h, y=y_disc, t=event_time, c=censor)
+        elif args.bag_loss == 'cox_surv':
+            h, y_disc, event_time, censor, clinical_data_list = _process_data_and_forward(args, model, modality, device, data)
+            loss = loss_fn(h=h, t=event_time, c=censor)
         else:
             raise ValueError('Unsupported loss function:', args.bag_loss)
 
         loss_value = loss.item()
-        loss = loss / y_disc.shape[0]
+        if args.bag_loss != 'cox_surv':
+            loss = loss / y_disc.shape[0]
         
-        risk, _ = _calculate_risk(h)
+        risk, _ = _calculate_risk(h, args.bag_loss)
 
         all_risk_scores, all_censorships, all_event_times, all_clinical_data = _update_arrays(all_risk_scores, all_censorships, all_event_times,all_clinical_data, event_time, censor, risk, clinical_data_list)
 
-        total_loss += loss_value 
+        if args.bag_loss == 'cox_surv':
+            total_loss += loss_value * event_time.shape[0]
+        else:
+            total_loss += loss_value 
 
         loss.backward()
         optimizer.step()
@@ -673,6 +692,9 @@ def _calculate_metrics(args, loader, dataset_factory, survival_train, all_risk_s
         print('An error occured while computing c-index ipcw')
         c_index_ipcw = 0.
 
+    if all_risk_by_bin_scores is None:
+        return c_index, c_index_ipcw, BS, IBS, iauc, iauc_list
+
     # brier score
     try:
         _, BS = brier_score(survival_train, survival_test, estimate=all_risk_by_bin_scores, times=which_times_to_eval_at)
@@ -740,15 +762,16 @@ def _summary(args, dataset_factory, model, modality, loader, loss_fn, survival_t
 
             data_WSI, mask, y_disc, event_time, censor, data_omics, clinical_data_list, data_clinic = _unpack_data(modality, device, data)
 
-            if modality in ["coattn"]:
+            if modality in ["mcat"]:
                 h = model(
-                    x_path=data_WSI, 
-                    x_omic1=data_omics[0], 
-                    x_omic2=data_omics[1], 
-                    x_omic3=data_omics[2], 
-                    x_omic4=data_omics[3], 
-                    x_omic5=data_omics[4], 
-                    x_omic6=data_omics[5]
+                    x_path=data_WSI,
+                    x_omic1=data_omics[0],
+                    x_omic2=data_omics[1],
+                    x_omic3=data_omics[2],
+                    x_omic4=data_omics[3],
+                    x_omic5=data_omics[4],
+                    x_omic6=data_omics[5],
+                    return_attn=args.return_attn
                 )
 
             elif modality in ["porpoise"]:
@@ -793,7 +816,7 @@ def _summary(args, dataset_factory, model, modality, loader, loss_fn, survival_t
                 input_args["return_attn"] = args.return_attn
                 h = model(**input_args)
 
-            elif modality in ['clinic_mlp', 'clinic_snn']:
+            elif modality in ['clinic_mlp', 'clinic_snn', 'clinic_cox']:
                 input_args = {"x_path": data_WSI.to(device)}
                 input_args['x_clinic'] = data_clinic.to(device)
                 input_args["return_attn"] = args.return_attn
@@ -813,21 +836,28 @@ def _summary(args, dataset_factory, model, modality, loader, loss_fn, survival_t
                 loss = loss_fn(h=h, y=y_disc, t=event_time, c=censor)
             elif args.bag_loss == 'nll_diff_surv':
                 loss = loss_fn(input1=tensor1, input2=tensor2, h=h, y=y_disc, t=event_time, c=censor)
+            elif args.bag_loss == 'cox_surv':
+                loss = loss_fn(h=h, t=event_time, c=censor)
             loss_value = loss.item()
-            loss = loss / y_disc.shape[0]
+            if args.bag_loss != 'cox_surv':
+                loss = loss / y_disc.shape[0]
 
 
-            risk, risk_by_bin = _calculate_risk(h)
-            all_risk_by_bin_scores.append(risk_by_bin)
+            risk, risk_by_bin = _calculate_risk(h, args.bag_loss)
+            if risk_by_bin is not None:
+                all_risk_by_bin_scores.append(risk_by_bin)
             all_risk_scores, all_censorships, all_event_times, clinical_data_list = _update_arrays(all_risk_scores, all_censorships, all_event_times,all_clinical_data, event_time, censor, risk, clinical_data_list)
             all_logits.append(h.detach().cpu().numpy())
-            total_loss += loss_value
+            if args.bag_loss == 'cox_surv':
+                total_loss += loss_value * event_time.shape[0]
+            else:
+                total_loss += loss_value
             all_slide_ids.append(slide_ids.values[count])
             count += 1
 
     total_loss /= len(loader.dataset)
     all_risk_scores = np.concatenate(all_risk_scores, axis=0)
-    all_risk_by_bin_scores = np.concatenate(all_risk_by_bin_scores, axis=0)
+    all_risk_by_bin_scores = np.concatenate(all_risk_by_bin_scores, axis=0) if len(all_risk_by_bin_scores) > 0 else None
     all_censorships = np.concatenate(all_censorships, axis=0)
     all_event_times = np.concatenate(all_event_times, axis=0)
     all_logits = np.concatenate(all_logits, axis=0)
