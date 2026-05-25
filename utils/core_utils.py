@@ -6,21 +6,26 @@ import pandas as pd
 from utils.file_utils import _save_pkl
 from custom_optims.radam import RAdam
 from models.model_ABMIL import ABMIL
-from models.model_MLPOmics import MLPOmics
-from models.model_MLPWSI import MLPWSI
-from models.model_SNNOmics import SNNOmics
+from models.model_MLP_GENE import MLPGene
+from models.model_MLP_GENE_F import MLPGeneFM
+from models.model_MLP_CLINIC import MLPClinic
+from models.model_MLP_WSI import MLPWSI
+from models.model_SNN_GENE import SNNGene
+from models.model_SNN_GENE_F import SNNGeneFM
+from models.model_SNN_CLINIC import SNNClinic
 from models.model_MCATPathways import MCAT_Surv
 from models.model_PORPOISE import PorpoiseMMF
 from models.model_SurvPath import SurvPath
 from models.model_SurvPGC_foundation import SurvPGC_F
 from models.model_SurvPC import SurvPC
 from models.model_SurvPC_foundation import SurvPC_F
-from models.model_MLPSingle import MLPSingle
 from models.model_TransMIL import TransMIL
-from models.model_SNNSingle import SNNSingle
 from models.model_SurvGC_foundation import SurvGC_F
 from models.model_MLPPC_concat import MLPPC_concat
 from models.model_CoxClinic import CoxClinic
+from models.model_SurvFusion_separate import SurvFusion
+from models.model_SurvFusion_noalign import SurvFusionNoAlign
+from models.model_SurvFusion_joint import SurvFusionJoint
 from sksurv.metrics import concordance_index_censored, concordance_index_ipcw, brier_score, integrated_brier_score, cumulative_dynamic_auc
 from sksurv.util import Surv
 
@@ -39,6 +44,15 @@ from utils.general_utils import _get_split_loader, _print_network, _save_splits
 from utils.loss_func import NLLSurvLoss, NLLDiffSurvLoss, CoxSurvLoss
 
 import torch.optim as optim
+
+
+CSV_GENE_MODALITIES = {"mlp_gene", "snn_gene"}
+GENE_F_MODALITIES = {"mlp_gene_f", "snn_gene_f"}
+CLINIC_MODALITIES = {
+    "mlp_clinic_mean", "mlp_clinic_flatten",
+    "snn_clinic_mean", "snn_clinic_flatten",
+    "clinic_cox",
+}
 
 
 
@@ -137,10 +151,11 @@ def _init_model(args):
             omics_input_dim = 14933
     else:
         omics_input_dim = 0
+    gene_fm_input_dim = 3072
 
     # For prompt-clinic modalities, infer the number of clinic tokens dynamically
     # by peeking at a sample .pt file, so the model handles any [n, 512] shape.
-    _PROMPT_CLINIC_MODALITIES = {'survpgc_f', 'survgc_f', 'survpc_f', 'clinic_mlp', 'clinic_cox'}
+    _PROMPT_CLINIC_MODALITIES = {'survpgc_f', 'survgc_f', 'survpc_f'} | CLINIC_MODALITIES
     if args.modality in _PROMPT_CLINIC_MODALITIES:
         import glob as _glob
         _clinic_files = _glob.glob(os.path.join(args.clinic_dir, '*.pt'))
@@ -152,19 +167,47 @@ def _init_model(args):
         clinic_num_tokens = torch.load(_clinic_files[0]).shape[0]
         print(f'clinic_num_tokens inferred from data: {clinic_num_tokens}')
 
-    if args.modality == "omics":
-        model_dict = {"input_dim": omics_input_dim, "projection_dim": 64, "dropout": args.encoder_dropout}
-        model = MLPOmics(**model_dict)
+    if args.modality == "mlp_gene":
+        model_dict = {
+            "input_dim": omics_input_dim,
+            "n_classes": args.n_classes,
+            "projection_dim": 64,
+            "dropout": args.encoder_dropout,
+        }
+        model = MLPGene(**model_dict)
 
-    elif args.modality == "snn":
-        model_dict = {"omic_input_dim": omics_input_dim}
-        model = SNNOmics(**model_dict)
+    elif args.modality == "snn_gene":
+        model_dict = {
+            "omic_input_dim": omics_input_dim,
+            "n_classes": args.n_classes,
+            "model_size_omic": args.single_model_size if args.single_model_size in {"small", "big"} else "small",
+        }
+        model = SNNGene(**model_dict)
+
+    elif args.modality == "mlp_gene_f":
+        model_dict = {
+            "input_dim": gene_fm_input_dim,
+            "n_classes": args.n_classes,
+            "model_size": args.single_model_size if args.single_model_size in {"medium", "big"} else "medium",
+            "dropout": args.encoder_dropout,
+            "use_input_ln": args.single_use_input_ln,
+        }
+        model = MLPGeneFM(**model_dict)
+
+    elif args.modality == "snn_gene_f":
+        model_dict = {
+            "input_dim": gene_fm_input_dim,
+            "n_classes": args.n_classes,
+            "model_size": args.single_model_size if args.single_model_size in {"medium", "big"} else "medium",
+            "use_input_ln": args.single_use_input_ln,
+        }
+        model = SNNGeneFM(**model_dict)
 
     elif args.modality in ["abmil_wsi"]:
         model_dict = {
             "device" : args.device, "df_comp": args.composition_df, "omic_input_dim" : omics_input_dim,
             "dim_per_path_1" : args.encoding_layer_1_dim, "dim_per_path_2" : args.encoding_layer_2_dim,
-            "fusion":args.fusion
+            "fusion":args.fusion, "path_input_dim": args.encoding_dim
         }
         model = ABMIL(**model_dict)
 
@@ -173,55 +216,141 @@ def _init_model(args):
         model_dict = {"wsi_embedding_dim":args.encoding_dim, "dropout":args.encoder_dropout, "device": args.device}
         model = MLPWSI(**model_dict)
 
-    elif args.modality == "transmil":
-        model_dict = {"input_dim": 1024, 'n_classes': args.n_classes}
+    elif args.modality in ["transmil_wsi"]:
+        model_dict = {"input_dim": args.encoding_dim, 'n_classes': args.n_classes}
         model = TransMIL(**model_dict)
 
     elif args.modality == "mcat":
-        model_dict = {'fusion': args.fusion, 'omic_sizes': args.omic_sizes, 'n_classes': args.n_classes}
+        model_dict = {
+            'fusion': args.fusion,
+            'omic_sizes': args.omic_sizes,
+            'n_classes': args.n_classes,
+            'path_input_dim': args.encoding_dim,
+        }
         model = MCAT_Surv(**model_dict)
 
     elif args.modality == "porpoise":
-        model_dict = {'fusion': args.fusion, 'omic_input_dim': 4999, 'n_classes': args.n_classes}
+        model_dict = {
+            'fusion': args.fusion,
+            'omic_input_dim': 4999,
+            'path_input_dim': args.encoding_dim,
+            'n_classes': args.n_classes,
+        }
         model = PorpoiseMMF(**model_dict)
 
     # survpath 
     elif args.modality == "survpath":
-        model_dict = {'omic_sizes': args.omic_sizes, 'num_classes': args.n_classes}
+        model_dict = {'omic_sizes': args.omic_sizes, 'num_classes': args.n_classes, 'wsi_embedding_dim': args.encoding_dim}
 
         model = SurvPath(**model_dict)
 
     elif args.modality == 'survpgc_f':
-        model_dict = {'num_classes': args.n_classes, 'clinic_num_tokens': clinic_num_tokens}
+        model_dict = {
+            'num_classes': args.n_classes,
+            'clinic_num_tokens': clinic_num_tokens,
+            'wsi_embedding_dim': args.encoding_dim,
+        }
         model = SurvPGC_F(**model_dict)
 
     elif args.modality == 'survpc':
-        model_dict = {'num_classes': args.n_classes}
+        model_dict = {
+            'num_classes': args.n_classes,
+            'wsi_embedding_dim': args.encoding_dim,
+        }
         model = SurvPC(**model_dict)
 
     elif args.modality == "survpc_f":
-        model_dict = {'num_classes': args.n_classes, 'clinic_num_tokens': clinic_num_tokens}
+        model_dict = {
+            'num_classes': args.n_classes,
+            'clinic_num_tokens': clinic_num_tokens,
+            'wsi_embedding_dim': args.encoding_dim,
+        }
         model = SurvPC_F(**model_dict)
 
     elif args.modality == "mlppc_concat":
-        model_dict = {'num_classes': args.n_classes, "clinic_dim": 24}
+        model_dict = {
+            'num_classes': args.n_classes,
+            "clinic_dim": 24,
+            'wsi_embedding_dim': args.encoding_dim,
+        }
         model = MLPPC_concat(**model_dict)
 
     elif args.modality == "survgc_f":
         model_dict = {'num_classes': args.n_classes, 'clinic_num_tokens': clinic_num_tokens}
         model = SurvGC_F(**model_dict)
 
-    elif args.modality == 'clinic_mlp':
-        model_dict = {'input_dim': 512, 'n_classes': args.n_classes, 'clinic_num_tokens': clinic_num_tokens}
-        model = MLPSingle(**model_dict)
+    elif args.modality == 'mlp_clinic_flatten':
+        model_dict = {
+            'input_dim': 512,
+            'n_classes': args.n_classes,
+            'clinic_num_tokens': clinic_num_tokens,
+            'dropout': 0.1,
+            'pooling': 'flatten',
+        }
+        model = MLPClinic(**model_dict)
 
-    elif args.modality == 'clinic_snn':
-        model_dict = {"input_dim": 512, 'n_classes': args.n_classes}
-        model = SNNSingle(**model_dict)
+    elif args.modality == 'mlp_clinic_mean':
+        model_dict = {
+            'input_dim': 512,
+            'n_classes': args.n_classes,
+            'clinic_num_tokens': clinic_num_tokens,
+            'dropout': 0.1,
+            'pooling': 'mean',
+        }
+        model = MLPClinic(**model_dict)
+
+    elif args.modality == 'snn_clinic_mean':
+        model_dict = {
+            "input_dim": 512,
+            'n_classes': args.n_classes,
+            'clinic_num_tokens': clinic_num_tokens,
+            'model_size_omic': args.single_model_size if args.single_model_size in {"small", "big"} else "small",
+            'pooling': 'mean',
+        }
+        model = SNNClinic(**model_dict)
+
+    elif args.modality == 'snn_clinic_flatten':
+        model_dict = {
+            "input_dim": 512,
+            'n_classes': args.n_classes,
+            'clinic_num_tokens': clinic_num_tokens,
+            'model_size_omic': args.single_model_size if args.single_model_size in {"small", "big"} else "small",
+            'pooling': 'flatten',
+        }
+        model = SNNClinic(**model_dict)
 
     elif args.modality == 'clinic_cox':
         model_dict = {'input_dim': 512, 'clinic_num_tokens': clinic_num_tokens}
         model = CoxClinic(**model_dict)
+
+    elif args.modality == 'survfusion_separate':
+        model_dict = {
+            'num_classes': args.n_classes,
+            'wsi_embedding_dim': args.encoding_dim,
+            'training_stage': 'stage1',
+            'fusion_type': args.fusion_type,
+            'num_heads': args.num_heads,
+            'clip_weight_IT': args.clip_weight_IT,
+            'clip_weight_IS': args.clip_weight_IS,
+            'clip_weight_TS': args.clip_weight_TS,
+        }
+        model = SurvFusion(**model_dict)
+
+    elif args.modality == 'survfusion_noalign':
+        model_dict = {
+            'num_classes': args.n_classes,
+            'wsi_embedding_dim': args.encoding_dim,
+            'num_heads': args.num_heads,
+        }
+        model = SurvFusionNoAlign(**model_dict)
+
+    elif args.modality == 'survfusion_joint':
+        model_dict = {
+            'num_classes': args.n_classes,
+            'wsi_embedding_dim': args.encoding_dim,
+            'num_heads': args.num_heads,
+        }
+        model = SurvFusionJoint(**model_dict)
 
     else:
         raise NotImplementedError
@@ -320,21 +449,21 @@ def _unpack_data(modality, device, data):
     
     """
     
-    if modality in ["omics", "snn"]:
+    if modality in CSV_GENE_MODALITIES | GENE_F_MODALITIES:
         data_WSI = data[0]
         mask = None
         data_omics = data[1].to(device)
         data_clinic = None
         y_disc, event_time, censor, clinical_data_list = data[2], data[3], data[4], data[5]
 
-    elif modality in ['clinic_mlp', 'clinic_snn', 'clinic_cox']:
+    elif modality in CLINIC_MODALITIES:
         data_WSI = data[0]
         mask = None
         data_clinic = data[1].to(device)
         data_omics = None
         y_disc, event_time, censor, clinical_data_list = data[2], data[3], data[4], data[5]
     
-    elif modality in ["abmil_wsi", "mlp_wsi", "transmil"]:
+    elif modality in ["abmil_wsi", "mlp_wsi", "transmil_wsi"]:
         data_WSI = data[0].to(device)
         data_omics = data[1].to(device)
         data_clinic = None
@@ -384,7 +513,7 @@ def _unpack_data(modality, device, data):
         data_clinic = None
         y_disc, event_time, censor, clinical_data_list = data[2], data[3], data[4], data[5]
 
-    elif modality in ["survpgc_f"]:
+    elif modality in ["survpgc_f", "survfusion_separate", "survfusion_noalign", "survfusion_joint"]:
         data_WSI = data[0].to(device)
         data_omics = data[1].to(device)
         data_clinic = data[2].to(device)
@@ -496,7 +625,30 @@ def _process_data_and_forward(args, model, modality, device, data):
         input_args["return_attn"] = False
         out = model(**input_args)
 
-    elif modality in ['clinic_mlp', 'clinic_snn', 'clinic_cox']:
+    elif modality == "survfusion_separate":
+        out, _ = model(
+            x_path=data_WSI.to(device),
+            x_omic=data_omics.to(device),
+            x_clinic=data_clinic.to(device),
+            return_align_loss=False,
+        )
+
+    elif modality == "survfusion_noalign":
+        out = model(
+            x_path=data_WSI.to(device),
+            x_omic=data_omics.to(device),
+            x_clinic=data_clinic.to(device),
+        )
+
+    elif modality == "survfusion_joint":
+        # 推理时只取 logits，丢弃 alignment_loss
+        out, _ = model(
+            x_path=data_WSI.to(device),
+            x_omic=data_omics.to(device),
+            x_clinic=data_clinic.to(device),
+        )
+
+    elif modality in CLINIC_MODALITIES:
         input_args = {"x_path": data_WSI.to(device)}
         input_args["x_clinic"] = data_clinic.to(device)
         input_args["return_attn"] = False
@@ -504,10 +656,10 @@ def _process_data_and_forward(args, model, modality, device, data):
 
     else:
         out = model(
-            data_omics = data_omics, 
-            data_WSI = data_WSI, 
-            mask = mask
-            )
+            data_omics=data_omics,
+            data_WSI=data_WSI,
+            mask=mask
+        )
         
     if len(out.shape) == 1:
             out = out.unsqueeze(0)
@@ -598,21 +750,32 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
         
         optimizer.zero_grad()
 
-        if args.bag_loss == 'nll_surv':
+        # survfusion_joint: 联合训练，需同时拿到 alignment_loss
+        if modality == 'survfusion_joint' and args.bag_loss == 'nll_surv':
+            data_WSI, _, y_disc, event_time, censor, data_omics, clinical_data_list, data_clinic = \
+                _unpack_data(modality, device, data)
+            h, align_loss = model(x_path=data_WSI, x_omic=data_omics, x_clinic=data_clinic)
+            if len(h.shape) == 1:
+                h = h.unsqueeze(0)
+            surv_loss = loss_fn(h=h, y=y_disc, t=event_time, c=censor)
+            loss_value = surv_loss.item()
+            loss = surv_loss / y_disc.shape[0] + args.clip_lambda * align_loss
+        elif args.bag_loss == 'nll_surv':
             h, y_disc, event_time, censor, clinical_data_list = _process_data_and_forward(args, model, modality, device, data)
             loss = loss_fn(h=h, y=y_disc, t=event_time, c=censor)
+            loss_value = loss.item()
+            loss = loss / y_disc.shape[0]
         elif args.bag_loss == 'nll_diff_surv':
             tensor1, tensor2, h, y_disc, event_time, censor, clinical_data_list = _process_data_and_forward(args, model, modality, device, data)
             loss = loss_fn(tensor1, tensor2, h=h, y=y_disc, t=event_time, c=censor)
+            loss_value = loss.item()
+            loss = loss / y_disc.shape[0]
         elif args.bag_loss == 'cox_surv':
             h, y_disc, event_time, censor, clinical_data_list = _process_data_and_forward(args, model, modality, device, data)
             loss = loss_fn(h=h, t=event_time, c=censor)
+            loss_value = loss.item()
         else:
             raise ValueError('Unsupported loss function:', args.bag_loss)
-
-        loss_value = loss.item()
-        if args.bag_loss != 'cox_surv':
-            loss = loss / y_disc.shape[0]
         
         risk, _ = _calculate_risk(h, args.bag_loss)
 
@@ -627,7 +790,10 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
         optimizer.step()
         scheduler.step()
 
-        if (batch_idx % 20) == 0:
+        if modality in ["survfusion_noalign", "survfusion_joint"]:
+            processed = min(batch_idx * loader.batch_size, len(loader.dataset))
+            print("batch: {}, loss: {:.3f}".format(processed, loss.item()))
+        elif (batch_idx % 20) == 0:
             print("batch: {}, loss: {:.3f}".format(batch_idx, loss.item()))
     
     total_loss /= len(loader.dataset)
@@ -816,7 +982,29 @@ def _summary(args, dataset_factory, model, modality, loader, loss_fn, survival_t
                 input_args["return_attn"] = args.return_attn
                 h = model(**input_args)
 
-            elif modality in ['clinic_mlp', 'clinic_snn', 'clinic_cox']:
+            elif modality == "survfusion_separate":
+                h, _ = model(
+                    x_path=data_WSI.to(device),
+                    x_omic=data_omics.to(device),
+                    x_clinic=data_clinic.to(device),
+                    return_align_loss=False,
+                )
+
+            elif modality == "survfusion_noalign":
+                h = model(
+                    x_path=data_WSI.to(device),
+                    x_omic=data_omics.to(device),
+                    x_clinic=data_clinic.to(device),
+                )
+
+            elif modality == "survfusion_joint":
+                h, _ = model(
+                    x_path=data_WSI.to(device),
+                    x_omic=data_omics.to(device),
+                    x_clinic=data_clinic.to(device),
+                )
+
+            elif modality in ['mlp_clinic_mean', 'mlp_clinic_flatten', 'snn_clinic_mean', 'snn_clinic_flatten', 'clinic_cox']:
                 input_args = {"x_path": data_WSI.to(device)}
                 input_args['x_clinic'] = data_clinic.to(device)
                 input_args["return_attn"] = args.return_attn
@@ -881,6 +1069,63 @@ def _summary(args, dataset_factory, model, modality, loader, loss_fn, survival_t
     else:
         attn_matrix = []
         return patient_results, c_index, c_index2, BS, IBS, iauc, iauc_list, total_loss, attn_matrix
+
+
+def _train_loop_stage1(args, epoch, model, loader, optimizer, scheduler):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.train()
+    total_loss = 0.
+
+    for batch_idx, data in enumerate(loader):
+        optimizer.zero_grad()
+        data_WSI, _, _, _, _, data_omics, _, data_clinic = _unpack_data("survfusion_separate", device, data)
+        _, alignment_loss = model(x_path=data_WSI, x_omic=data_omics, x_clinic=data_clinic)
+        alignment_loss.backward()
+        optimizer.step()
+        scheduler.step()
+        total_loss += alignment_loss.item()
+        print("Stage1 batch: {}, align_loss: {:.4f}".format(
+            batch_idx * loader.batch_size, alignment_loss.item()))
+
+    total_loss /= len(loader)
+    print("Stage1 Epoch {}: train_align_loss={:.4f}".format(epoch, total_loss))
+    return total_loss
+
+
+def _val_loop_stage1(model, loader):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.eval()
+    total_loss = 0.
+
+    with torch.no_grad():
+        for data in loader:
+            data_WSI, _, _, _, _, data_omics, _, data_clinic = _unpack_data("survfusion_separate", device, data)
+            _, alignment_loss = model(x_path=data_WSI, x_omic=data_omics, x_clinic=data_clinic)
+            total_loss += alignment_loss.item()
+
+    total_loss /= len(loader)
+    return total_loss
+
+
+def _step_stage1(cur, args, model, train_loader, val_loader):
+    optimizer = optim.AdamW(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=args.lr_stage1,
+        weight_decay=args.reg,
+    )
+    total_steps = args.max_epochs_stage1 * len(train_loader)
+    warmup_steps = len(train_loader)  # 1 epoch warmup
+    scheduler = get_cosine_schedule_with_warmup(optimizer, warmup_steps, total_steps)
+
+    val_loss_min = float('inf')
+    for epoch in range(args.max_epochs_stage1):
+        _train_loop_stage1(args, epoch, model, train_loader, optimizer, scheduler)
+        val_loss = _val_loop_stage1(model, val_loader)
+        print("Stage1 Val align_loss: {:.4f}".format(val_loss))
+        if val_loss < val_loss_min:
+            val_loss_min = val_loss
+            torch.save(model, os.path.join(args.results_dir, "s_{}_stage1_checkpoint.pt".format(cur)))
+            print("Stage1 Epoch {} is the best.".format(epoch))
 
 
 def _get_lr_scheduler(args, optimizer, dataloader):
@@ -950,14 +1195,15 @@ def _step(cur, args, loss_fn, model, optimizer, scheduler, train_loader, val_loa
             filename = os.path.join(args.results_dir, 'split_{}_results_val.pkl'.format(cur))
             _save_pkl(filename, results_dict_val)
             print('Epoch: {} is the best.'.format(epoch))
-    final_df = pd.DataFrame({
+    final_df = pd.DataFrame([{
         'val_cindex': val_cindex_max,
         'val_cindex_ipcw': val_cindex_ipcw,
         'val_IBS': val_IBS,
         'val_iauc': val_iauc,
         'val_iauc_list': val_iauc_list,
         "val_loss": total_loss,
-        'val_BS': val_BS})
+        'val_BS': val_BS
+    }])
     final_df.to_csv(os.path.join(args.results_dir, 'val_result_fold{}.csv'.format(cur)))
 
     print('Start testing')
@@ -989,28 +1235,41 @@ def _train_val_test(datasets, cur, args):
 
     #----> gets splits and summarize
     train_split, val_split, test_split = _get_splits(datasets, cur, args)
-    
+
     #----> init loss function
     loss_fn = _init_loss_function(args)
 
     #----> init model
     model = _init_model(args)
-    
-    #---> init optimizer
-    optimizer = _init_optim(args, model)
 
-    #---> init loaders
+    #---> init loaders (stage2 / normal loaders, batch_size=1)
     train_loader, val_loader, test_loader = _init_loaders(args, train_split, val_split, test_split)
 
-    # lr scheduler 
+    if args.modality == 'survfusion_separate':
+        # ── Stage 1: CLIP 对齐训练（使用更大的 batch_size）
+        stage1_train_loader = _get_split_loader(
+            args, train_split, training=True, testing=False,
+            weighted=args.weighted_sample, batch_size=args.batch_size_stage1
+        )
+        _step_stage1(cur, args, model, stage1_train_loader, val_loader)
+
+        # 加载 Stage1 最优 checkpoint，冻结参数，切换到 Stage2
+        model = torch.load(
+            os.path.join(args.results_dir, "s_{}_stage1_checkpoint.pt".format(cur)),
+            weights_only=False
+        )
+        model.freeze_stage1_modules()
+        model.set_training_stage("stage2")
+        if torch.cuda.is_available():
+            model = model.to(torch.device('cuda'))
+
+    # survfusion_noalign / survfusion_joint：无 Stage1，直接走 Stage2 pipeline
+    # （batch_size 由命令行 --batch_size 控制，建议设为 32）
+
+    # ── Stage 2 / 普通模型：走现有 pipeline
+    optimizer = _init_optim(args, model)
     lr_scheduler = _get_lr_scheduler(args, optimizer, train_loader)
 
     results_dict, (test_cindex, test_cindex2, test_BS, test_IBS, test_iauc, test_iauc_list, total_loss), attn_matrix = _step(cur, args, loss_fn, model, optimizer, lr_scheduler, train_loader, val_loader, test_loader)
 
     return results_dict, (test_cindex, test_cindex2, test_BS, test_IBS, test_iauc, test_iauc_list, total_loss), attn_matrix
-
-
-
-
-
-

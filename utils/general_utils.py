@@ -8,6 +8,25 @@ from torch.utils.data import DataLoader, Sampler, WeightedRandomSampler, RandomS
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+def _infer_wsi_encoding_dim(data_root_dir):
+    r"""
+    Infer WSI embedding dim from the first available .pt file under data_root_dir.
+    This keeps direct `python main.py ... --data_root_dir ...` runs aligned with
+    the selected WSI_EXPERIMENT without requiring a manual --encoding_dim override.
+    """
+    import glob
+
+    pt_files = sorted(glob.glob(os.path.join(data_root_dir, "*.pt")))
+    if not pt_files:
+        raise FileNotFoundError(f"No .pt files found under WSI data_root_dir: {data_root_dir}")
+
+    sample = torch.load(pt_files[0], map_location="cpu")
+    if sample.ndim < 2:
+        raise ValueError(
+            f"Expected WSI embedding tensor with ndim >= 2, got shape {tuple(sample.shape)} from {pt_files[0]}"
+        )
+    return int(sample.shape[-1])
+
 def _prepare_for_experiment(args):
     r"""
     Creates experiment code which will be used for identifying the experiment later on. Uses the experiment code to make results dir.
@@ -23,7 +42,13 @@ def _prepare_for_experiment(args):
 
     args.device = device
     print(args.device)
-    args.split_dir = os.path.join("splits", args.which_splits, args.study)
+    if not getattr(args, 'split_dir', None):
+        args.split_dir = os.path.join("splits", args.which_splits, args.study)
+    if getattr(args, 'data_root_dir', None):
+        inferred_wsi_dim = _infer_wsi_encoding_dim(args.data_root_dir)
+        if getattr(args, 'encoding_dim', None) != inferred_wsi_dim:
+            print(f"WSI encoding dim inferred from {args.data_root_dir}: {inferred_wsi_dim} (override {args.encoding_dim})")
+            args.encoding_dim = inferred_wsi_dim
     args.combined_study = args.study
     args = _get_custom_exp_code(args)
     _seed_torch(args.seed)
@@ -188,11 +213,23 @@ def _create_results_dir(args):
     exp_group = getattr(args, 'exp_group', 'default')
     run_name  = getattr(args, 'run_name',  'default')
 
+    # survfusion_separate 追加 fusion_type 后缀；mhsa 还追加 CLIP 权重后缀（实验三 27 组合）
+    if args.modality == 'survfusion_separate':
+        fusion_type = getattr(args, 'fusion_type', 'mhsa')
+        folder = f"{args.modality}_{fusion_type}"
+        if fusion_type == 'mhsa':
+            w_it = int(getattr(args, 'clip_weight_IT', 1.0))
+            w_is = int(getattr(args, 'clip_weight_IS', 1.0))
+            w_ts = int(getattr(args, 'clip_weight_TS', 1.0))
+            folder += f"_{w_it}_{w_is}_{w_ts}"
+    else:
+        folder = args.modality
+
     args.results_dir = os.path.join(
         args.results_dir,   # base (e.g. ./results)
         exp_group,          # clinic_test / gene_test / param_tuning / ablation / default
         run_name,           # O_origin / lr_0001 / …
-        args.modality,      # survpgc_f / survgc_f / …
+        folder,             # survpgc_f / survfusion_separate_mhsa / …
     )
     os.makedirs(args.results_dir, exist_ok=True)
 
@@ -568,19 +605,23 @@ def _get_split_loader(args, split_dataset, training = False, testing = False, we
 
     kwargs = {'num_workers': 0} if device.type == "cuda" else {}
     
-    if args.modality in ["omics", "snn"]:
+    if args.modality in ["mlp_gene", "snn_gene", "mlp_gene_f", "snn_gene_f"]:
         collate_fn = _collate_omics
-    elif args.modality in ['clinic_mlp', 'clinic_snn', 'clinic_cox']:
+    elif args.modality in ['clinic_cox',
+                           'mlp_clinic_mean', 'mlp_clinic_flatten',
+                           'snn_clinic_mean', 'snn_clinic_flatten']:
         collate_fn = _collate_clinic_f
     elif args.modality in ["abmil_wsi", "mlp_wsi", "transmil_wsi"]:
         collate_fn = _collate_wsi_omics
-    elif args.modality in ["coattn"]:
+    elif args.modality in ["mcat"]:
         collate_fn = _collate_MCAT
     elif args.modality in ["porpoise"]:
         collate_fn = _collate_porpoise
+    elif args.modality == "survpath":
+        collate_fn = _collate_survpath
     elif args.modality == "survpath_f":
         collate_fn = _collate_survpath_f
-    elif args.modality == "survpgc_f":
+    elif args.modality in ["survpgc_f", "survfusion_separate", "survfusion_noalign", "survfusion_joint"]:
         collate_fn = _collate_survpgc_f
     elif args.modality in ["survpc", "survpc_f", "mlppc_concat"]:
         collate_fn = _collate_survpc_f

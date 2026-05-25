@@ -9,9 +9,18 @@ __pycache__/
 # Local archives
 *.zip
 *.rar
+*.log
 
 # User-requested excluded directories
 datasets_csv/
-results/results/
+results/
+results_display/*
+!results_display/scripts/
+!results_display/scripts/**
 splits/
 SurvPGC_Workspace/
+configs/done/
+configs/done_backup/
+configs/failed/
+configs/queue/
+configs/running/

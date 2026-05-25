@@ -23,7 +23,7 @@ Mobadersany, Pooya, et al. "Predicting cancer outcomes from histology and genomi
 # Attention MIL Implementation #
 ################################
 class ABMIL(nn.Module):
-    def __init__(self, omic_input_dim=None, fusion=None, size_arg = "small", dropout=0.25, n_classes=4, df_comp=None, dim_per_path_1=16, dim_per_path_2=64, device="cpu"):
+    def __init__(self, omic_input_dim=None, fusion=None, size_arg = "small", dropout=0.25, n_classes=4, df_comp=None, dim_per_path_1=16, dim_per_path_2=64, device="cpu", path_input_dim=1024):
         r"""
         Attention MIL Implementation
 
@@ -37,7 +37,7 @@ class ABMIL(nn.Module):
         super(ABMIL, self).__init__()
         self.device = device
         self.fusion = fusion
-        self.size_dict_path = {"small": [1024, 256, 256], "big": [1024, 512, 384]}
+        self.size_dict_path = {"small": [path_input_dim, 256, 256], "big": [path_input_dim, 512, 384]}
         self.size_dict_omic = {'small': [256, 256]}
 
         ### Deep Sets Architecture Construction

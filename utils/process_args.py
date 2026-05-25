@@ -27,7 +27,6 @@ def _process_args():
     parser.add_argument('--n_classes', type=int, default=4, help='number of classes (4 bins for survival)')
     parser.add_argument('--results_dir', default=DEFAULT_RESULTS_DIR, help='base results directory (default: ./results)')
     parser.add_argument('--exp_group', type=str, default='default',
-                        choices=['clinic_test', 'gene_test', 'param_tuning', 'ablation', 'default'],
                         help='experiment group; results are stored under results/{exp_group}/{run_name}/{modality}/')
     parser.add_argument('--run_name', type=str, default='default',
                         help='run name within the experiment group (e.g. O_origin, lr_0001)')
@@ -47,6 +46,11 @@ def _process_args():
     parser.add_argument("--encoding_layer_1_dim", type=int, default=8)
     parser.add_argument("--encoding_layer_2_dim", type=int, default=16)
     parser.add_argument("--encoder_dropout", type=float, default=0.25)
+    parser.add_argument('--single_model_size', type=str, default='small',
+                        choices=['small', 'medium', 'big'],
+                        help='hidden size preset for single-modality models')
+    parser.add_argument('--single_use_input_ln', action='store_true', default=False,
+                        help='apply LayerNorm on single-modality gene foundation inputs')
 
     #----> split related 
     parser.add_argument('--k', type=int, default=5, help='number of folds (default: 10)')
@@ -76,22 +80,49 @@ def _process_args():
     parser.add_argument('--max_epochs_stage1', type=int, default=40, help='max epochs for stage-1 alignment training')
     parser.add_argument('--batch_size_stage1', type=int, default=32, help='batch size for stage-1 alignment training')
 
+    # ── SurvFusion 消融实验参数 ─────────────────────────────────────────────
+    # 实验2: 联合训练时 alignment_loss 的权重 λ ∈ {0.01, 0.1, 0.5}
+    parser.add_argument('--clip_lambda', type=float, default=0.1,
+                        help='weight for alignment_loss in survfusion_joint: total = surv + λ * align')
+    # 实验3: Stage2 融合方式消融
+    parser.add_argument('--fusion_type', type=str, default='mhsa',
+                        choices=['mhsa', 'concat', 'mean_concat'],
+                        help='Stage2 fusion in survfusion_separate: mhsa | concat | mean_concat')
+    parser.add_argument('--num_heads', type=int, default=8,
+                        help='number of attention heads for mhsa fusion, ablation in {2, 4, 8}')
+    # 实验4: CLIP 三对损失权重消融 (w_IT, w_IS, w_TS) ∈ {(1,1,1),(2,2,1),(3,3,1)}
+    parser.add_argument('--clip_weight_IT', type=float, default=1.0, help='CLIP I-T pair weight')
+    parser.add_argument('--clip_weight_IS', type=float, default=1.0, help='CLIP I-S pair weight')
+    parser.add_argument('--clip_weight_TS', type=float, default=1.0, help='CLIP T-S pair weight')
+
     #---> model related
     parser.add_argument('--fusion', type=str, default=None, choices=['concat', 'bilinear'])
     parser.add_argument('--modality', type=str, default="survpgc_f",
                         choices=[
-                            # unimodal G
-                            'omics', 'snn',
+                            # unimodal G (csv)
+                            'mlp_gene', 'snn_gene',
+                            # unimodal G foundation embedding
+                            'mlp_gene_f', 'snn_gene_f',
                             # unimodal WSI
                             'abmil_wsi', 'mlp_wsi', 'transmil_wsi',
                             # unimodal C
-                            'clinic_mlp', 'clinic_snn', 'clinic_cox',
+                            'mlp_clinic_mean', 'mlp_clinic_flatten',
+                            'snn_clinic_mean', 'snn_clinic_flatten',
+                            'clinic_cox',
                             # multimodal WSI+G baselines
                             'porpoise', 'survpath', 'mcat',
                             # main model WSI+G+C
                             'survpgc_f',
+                            # two-stage CLIP alignment + survival (WSI+G+C)
+                            'survfusion_separate',
+                            # ablation exp1: no CLIP, end-to-end survival only
+                            'survfusion_noalign',
+                            # ablation exp2: joint CLIP + survival loss
+                            'survfusion_joint',
                             # ablation WSI+C
-                            'survpc', 'survpc_f', 'mlppc_concat',
+                            'survpc_f',
+                            # ablation G+C
+                            'survgc_f',
                         ])
     parser.add_argument('--return_attn', type=str, default=False, help="Used for heatmap drawing")
     parser.add_argument('--encoding_dim', type=int, default=1024, help='WSI encoding dim, default: 1024')
@@ -122,25 +153,31 @@ conda activate SurvPGC
 
 python main.py \
   --study tcga_kirc \
-  --modality survpgc_f \
+  --modality abmil_wsi \
   --type_of_path combine \
-  --k 5
+  --data_root_dir SurvPGC_Workspace/P/uni_v2 \
+  --k 1
 
-  --fusion concat \
   --fusion bilinear \
+  --fusion_type mean_concat \
 
 '''
 
 
 '''
-# 单模态 G（只用基因组）
-omics
-snn
+# unimodal G (csv)
+'mlp_gene', 'snn_gene',
 
-# 单模态 WSI（只用病理图像）
-abmil_wsi
-mlp_wsi
-transmil_wsi
+# unimodal G foundation embedding
+'mlp_gene_f', 'snn_gene_f',
+
+# unimodal WSI
+abmil_wsi', 'mlp_wsi', 'transmil_wsi',
+
+# unimodal C
+'mlp_clinic_mean', 'mlp_clinic_flatten',
+'snn_clinic_mean', 'snn_clinic_flatten',
+'clinic_cox',
 
 # 多模态基线（WSI + G）
 porpoise
@@ -175,5 +212,3 @@ clinic_mlp
 clinic_snn
 clinic_cox
 '''
-
-

@@ -17,6 +17,37 @@ from warnings import simplefilter
 
 simplefilter(action="ignore",category=FutureWarning)
 
+def _write_filter_log(args):
+    summary = getattr(args.dataset_factory, "wsi_filter_summary", None)
+    removed_rows = getattr(args.dataset_factory, "wsi_filter_removed_rows", None)
+    if not summary:
+        return
+
+    out_path = os.path.join(args.results_dir, "filter.log")
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write("WSI filter summary\n")
+        f.write(f"study: {args.study}\n")
+        f.write(f"modality: {args.modality}\n")
+        f.write(f"data_root_dir: {summary.get('data_dir', 'N/A')}\n")
+        f.write(f"total_cases_before: {summary.get('total_cases_before', 0)}\n")
+        f.write(f"kept_cases: {summary.get('kept_cases', 0)}\n")
+        f.write(f"removed_cases: {summary.get('removed_cases', 0)}\n")
+        f.write("\n")
+        f.write("Removed cases\n")
+
+        if not removed_rows:
+            f.write("None\n")
+            return
+
+        for row in removed_rows:
+            missing_slide_ids = ", ".join(row["missing_slide_ids"])
+            f.write(
+                f"{row['case_id']}\t{subtype_label(row['oncotree_code'])}\tmissing_slides={missing_slide_ids}\n"
+            )
+
+def subtype_label(oncotree_code):
+    return oncotree_code if oncotree_code not in (None, "", "nan") else "N/A"
+
 def main(args):
 
     #----> prep for 5 fold cv study
@@ -89,19 +120,22 @@ if __name__ == "__main__":
         study=args.study,
         label_file=args.label_file,
         omics_dir=args.omics_dir,
+        data_dir=args.data_root_dir,
         seed=args.seed, 
         print_info=True, 
         n_bins=args.n_classes, 
         label_col=args.label_col, 
         eps=1e-6,
         num_patches=args.num_patches,
-        is_mcat = True if "coattn" in args.modality else False,
+        is_mcat = True if args.modality == "mcat" else False,
         is_survpath = True if args.modality == "survpath" else False,
         is_survpgc = True if args.modality == "survpgc" else False,
-        is_survpgc_f = True if args.modality == "survpgc_f" else False,
+        is_survpgc_f = True if args.modality in ("survpgc_f", "survfusion_separate", "survfusion_noalign", "survfusion_joint") else False,
         is_survpc = True if args.modality == "survpc" else False,
         is_survpc_f = True if args.modality == "survpc_f" else False,
         type_of_pathway=args.type_of_path)
+
+    _write_filter_log(args)
 
 
     #---> perform the experiment

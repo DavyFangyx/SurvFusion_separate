@@ -123,7 +123,6 @@ class SurvPath(nn.Module):
 
         #---> project wsi to smaller dimension (same as pathway dimension)
         wsi_embed = self.wsi_projection_net(wsi)
-        wsi_embed = wsi_embed.unsqueeze(0)
 
         tokens = torch.cat([h_omic_bag, wsi_embed], dim=1)
         tokens = self.identity(tokens)

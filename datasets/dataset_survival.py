@@ -30,6 +30,7 @@ class SurvivalDatasetFactory:
         print_info, 
         n_bins, 
         label_col, 
+        data_dir=None,
         eps=1e-6,
         num_patches=4096,
         is_mcat=False,
@@ -66,10 +67,10 @@ class SurvivalDatasetFactory:
         self.study = study
         self.label_file = label_file
         self.omics_dir = omics_dir
+        self.data_dir = data_dir
         self.seed = seed
         self.print_info = print_info
         self.train_ids, self.val_ids = (None, None)
-        self.data_dir = None
         self.label_col = label_col
         self.n_bins = n_bins
         self.num_patches = num_patches
@@ -81,6 +82,8 @@ class SurvivalDatasetFactory:
         self.is_survpc = is_survpc
         self.is_survpc_f = is_survpc_f
         self.type_of_path = type_of_pathway
+        self.wsi_filter_summary = {}
+        self.wsi_filter_removed_rows = []
 
         if self.label_col == "survival_months":
             self.survival_endpoint = "OS"
@@ -216,6 +219,8 @@ class SurvivalDatasetFactory:
         #---> read labels 
         self.label_data = pd.read_csv(self.label_file, low_memory=False)
 
+        self._filter_label_data_by_available_wsi()
+
         #---> minor clean-up of the labels 
         uncensored_df = self._clean_label_data()
 
@@ -246,6 +251,54 @@ class SurvivalDatasetFactory:
         uncensored_df = self.patients_df[self.patients_df[self.censorship_var] < 1]
         
         return uncensored_df
+
+    def _filter_label_data_by_available_wsi(self):
+        r"""
+        Filter metadata rows by checking whether every slide_id for a case has a
+        corresponding WSI embedding file in self.data_dir.
+        """
+        if not self.data_dir:
+            return
+
+        if not os.path.isdir(self.data_dir):
+            raise FileNotFoundError(f"WSI data_dir does not exist: {self.data_dir}")
+
+        grouped = self.label_data.groupby("case_id", sort=False)
+        keep_case_ids = []
+        removed_rows = []
+
+        for case_id, case_df in grouped:
+            missing_slides = []
+            slide_ids = case_df["slide_id"].tolist()
+            for slide_id in slide_ids:
+                slide_stub = slide_id[:-4] if str(slide_id).endswith(".svs") else str(slide_id)
+                wsi_path = os.path.join(self.data_dir, f"{slide_stub}.pt")
+                if not os.path.exists(wsi_path):
+                    missing_slides.append(str(slide_id))
+
+            if missing_slides:
+                removed_rows.append({
+                    "case_id": case_id,
+                    "oncotree_code": str(case_df["oncotree_code"].iloc[0]) if "oncotree_code" in case_df.columns else "N/A",
+                    "missing_slide_ids": missing_slides,
+                })
+            else:
+                keep_case_ids.append(case_id)
+
+        removed_case_ids = [row["case_id"] for row in removed_rows]
+
+        self.label_data = self.label_data[self.label_data["case_id"].isin(keep_case_ids)].reset_index(drop=True)
+        self.wsi_filter_removed_rows = removed_rows
+        self.wsi_filter_summary = {
+            "data_dir": self.data_dir,
+            "total_cases_before": len(keep_case_ids) + len(removed_case_ids),
+            "kept_cases": len(keep_case_ids),
+            "removed_cases": len(removed_case_ids),
+        }
+
+        if self.print_info:
+            print(f"[WSI filter] data_dir={self.data_dir}")
+            print(f"[WSI filter] kept cases: {len(keep_case_ids)} | removed cases: {len(removed_case_ids)}")
 
     def _discretize_survival_months(self, eps, uncensored_df):
         r"""
@@ -708,7 +761,7 @@ class SurvivalDataset(Dataset):
         
         label, event_time, c, slide_ids, clinical_data, case_id = self.get_data_to_return(idx)
 
-        if self.modality in ['omics', 'snn', 'mlp_per_path']:
+        if self.modality in ['mlp_gene', 'snn_gene', 'mlp_per_path']:
             df_small = self.omics_data_dict["rna"][self.omics_data_dict["rna"]["temp_index"] == case_id]
             df_small = df_small.drop(columns="temp_index")
             df_small = df_small.reindex(sorted(df_small.columns), axis=1)
@@ -716,7 +769,7 @@ class SurvivalDataset(Dataset):
             return (torch.zeros((1,1)), omics_tensor, label, event_time, c, clinical_data)
         
         #@TODO what is the difference between tmil_abmil and transmil_wsi
-        elif self.modality in ["mlp_per_path_wsi", "abmil_wsi", "abmil_wsi_pathways", "deepmisl_wsi", "deepmisl_wsi_pathways", "mlp_wsi", "transmil_wsi", "transmil_wsi_pathways", "transmil"]:
+        elif self.modality in ["mlp_per_path_wsi", "abmil_wsi", "abmil_wsi_pathways", "deepmisl_wsi", "deepmisl_wsi_pathways", "mlp_wsi", "transmil_wsi", "transmil_wsi_pathways", "transmil_wsi"]:
             df_small = self.omics_data_dict["rna"][self.omics_data_dict["rna"]["temp_index"] == case_id]
             df_small = df_small.drop(columns="temp_index")
             df_small = df_small.reindex(sorted(df_small.columns), axis=1)
@@ -725,7 +778,7 @@ class SurvivalDataset(Dataset):
             #@HACK: returning case_id, remove later
             return (patch_features, omics_tensor, label, event_time, c, clinical_data, mask)
 
-        elif self.modality in ["coattn", "coattn_motcat"]:
+        elif self.modality in ["mcat", "coattn_motcat"]:
             patch_features, mask = self._load_wsi_embs_from_path(self.data_dir, slide_ids)
             omic1 = torch.tensor(self.omics_data_dict["rna"][self.omic_names[0]].iloc[idx])
             omic2 = torch.tensor(self.omics_data_dict["rna"][self.omic_names[1]].iloc[idx])
@@ -747,7 +800,7 @@ class SurvivalDataset(Dataset):
             patch_features, mask = self._load_wsi_embs_from_path(self.data_dir, slide_ids)
             omic_list = []
             for i in range(self.num_pathways):
-                omic_list.append(torch.tensor(self.omics_data_dict["rna"][self.omic_names[i]].iloc[idx]))
+                omic_list.append(torch.tensor(self.omics_data_dict["rna"][self.omic_names[i]].iloc[idx].values))
             return (patch_features, omic_list, label, event_time, c, clinical_data, mask)
 
 
@@ -756,7 +809,7 @@ class SurvivalDataset(Dataset):
             clinic_features = self._load_clinic_embs_from_prompt(self.clinic_dir, slide_ids)
             omic_list = []
             for i in range(self.num_pathways):
-                omic_list.append(torch.tensor(self.omics_data_dict["rna"][self.omic_names[i]].iloc[idx]))
+                omic_list.append(torch.tensor(self.omics_data_dict["rna"][self.omic_names[i]].iloc[idx].values))
             return (patch_features, omic_list, clinic_features, label, event_time, c, clinical_data, mask)
 
         elif self.modality == 'survpath_f':
@@ -785,16 +838,24 @@ class SurvivalDataset(Dataset):
             clinic_features = self._load_clinic_embs_onehot(slide_ids)
             return (patch_features, clinic_features, label, event_time, c, clinical_data, mask)
 
+        elif self.modality in ["survfusion_separate", "survfusion_noalign", "survfusion_joint"]:
+            patch_features, mask = self._load_wsi_embs_from_path(self.data_dir, slide_ids)
+            gene_features = self._load_gene_embs_from_path(self.gene_dir, slide_ids)
+            clinic_features = self._load_clinic_embs_from_prompt(self.clinic_dir, slide_ids)
+            return (patch_features, gene_features, clinic_features, label, event_time, c, clinical_data, mask)
+
         elif self.modality == "survgc_f":
             clinic_features = self._load_clinic_embs_from_prompt(self.clinic_dir, slide_ids)
             gene_features = self._load_gene_embs_from_path(self.gene_dir, slide_ids)
             return (torch.zeros((1, 1)), clinic_features, gene_features, label, event_time, c, clinical_data)
 
-        elif self.modality in ['omics_mlp', 'omics_snn']:
+        elif self.modality in ['mlp_gene_f', 'snn_gene_f', 'omics_mlp', 'omics_snn']:
             gene_features = self._load_gene_embs_from_path(self.gene_dir, slide_ids)
             return (torch.zeros((1,1)), gene_features, label, event_time, c, clinical_data)
 
-        elif self.modality in ['clinic_mlp', 'clinic_snn', 'clinic_cox']:
+        elif self.modality in ['clinic_cox',
+                               'mlp_clinic_mean', 'mlp_clinic_flatten',
+                               'snn_clinic_mean', 'snn_clinic_flatten']:
             clinic_features = self._load_clinic_embs_from_prompt(self.clinic_dir, slide_ids)
             return (torch.zeros((1,1)), clinic_features, label, event_time, c, clinical_data)
 
