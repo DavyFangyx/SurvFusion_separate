@@ -24,3 +24,5 @@ configs/done_backup/
 configs/failed/
 configs/queue/
 configs/running/
+configs/done_sigle_multi23_backup
+configs/done_backup

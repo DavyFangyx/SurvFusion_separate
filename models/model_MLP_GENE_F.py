@@ -56,11 +56,14 @@ class MLPGeneFM(nn.Module):
         )
         self.classifier = nn.Linear(projection_dim // 2, n_classes)
 
-    def forward(self, **kwargs):
+    def forward(self, return_feats: bool = False, **kwargs):
         x = _extract_gene_fm_tensor(kwargs)
         x = self.input_norm(x)
         h = self.encoder(x)
-        return self.classifier(h)
+        logits = self.classifier(h)
+        if return_feats:
+            return h, logits
+        return logits
 
 
 MLP_GENE_F = MLPGeneFM

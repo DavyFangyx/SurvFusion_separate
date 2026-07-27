@@ -34,14 +34,19 @@ class TransMIL(nn.Module):
         self._fc1 = nn.Sequential(nn.Linear(input_dim, 512), nn.ReLU())
         self.cls_token = nn.Parameter(torch.randn(1, 1, 512))
         self.n_classes = n_classes
+        self.feature_dim = 512
         self.layer1 = TransLayer(dim=512)
         self.layer2 = TransLayer(dim=512)
         self.norm = nn.LayerNorm(512)
         self._fc2 = nn.Linear(512, self.n_classes)
 
 
-    def forward(self, **kwargs):
-        x_path = kwargs['data_WSI']
+    def forward(self, return_feats=False, **kwargs):
+        x_path = kwargs.get('x_path')
+        if x_path is None:
+            x_path = kwargs.get('data_WSI')
+        if x_path is None:
+            raise KeyError("Expected `x_path` or `data_WSI` in kwargs.")
         h = self._fc1(x_path)  # [B, n, 512]
 
         # ---->pad
@@ -75,6 +80,8 @@ class TransMIL(nn.Module):
         S = torch.cumprod(1 - hazards, dim=1)
         
         # return hazards, S, Y_hat, None, None
+        if return_feats:
+            return h, logits
         return logits
 
 

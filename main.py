@@ -130,7 +130,17 @@ if __name__ == "__main__":
         is_mcat = True if args.modality == "mcat" else False,
         is_survpath = True if args.modality == "survpath" else False,
         is_survpgc = True if args.modality == "survpgc" else False,
-        is_survpgc_f = True if args.modality in ("survpgc_f", "survfusion_separate", "survfusion_noalign", "survfusion_joint") else False,
+        is_survpgc_f = True if args.modality in (
+            "survpgc_f",
+            "survfusion_separate",
+            "survfusion_noalign",
+            "survfusion_joint",
+            "survtri_snn_concat",
+            "survtri_snn_mhsa",
+            "survtri_mlp_concat",
+            "survtri_mlp_mhsa",
+            "survtri_poe_vae",
+        ) else False,
         is_survpc = True if args.modality == "survpc" else False,
         is_survpc_f = True if args.modality == "survpc_f" else False,
         type_of_pathway=args.type_of_path)

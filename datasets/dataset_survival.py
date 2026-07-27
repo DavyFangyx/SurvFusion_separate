@@ -838,7 +838,15 @@ class SurvivalDataset(Dataset):
             clinic_features = self._load_clinic_embs_onehot(slide_ids)
             return (patch_features, clinic_features, label, event_time, c, clinical_data, mask)
 
-        elif self.modality in ["survfusion_separate", "survfusion_noalign", "survfusion_joint"]:
+        elif self.modality in [
+            "survfusion_separate",
+            "survfusion_noalign",
+            "survfusion_joint",
+            "survtri_snn_concat",
+            "survtri_snn_mhsa",
+            "survtri_mlp_concat",
+            "survtri_mlp_mhsa",
+        ]:
             patch_features, mask = self._load_wsi_embs_from_path(self.data_dir, slide_ids)
             gene_features = self._load_gene_embs_from_path(self.gene_dir, slide_ids)
             clinic_features = self._load_clinic_embs_from_prompt(self.clinic_dir, slide_ids)

@@ -10,7 +10,9 @@ def _extract_clinic_tensor(kwargs):
         raise KeyError("Expected `x_clinic` or `data_clinic` in kwargs.")
 
     x = x.float()
-    if x.dim() == 2:
+    if x.dim() == 1:
+        x = x.unsqueeze(0).unsqueeze(0)
+    elif x.dim() == 2:
         x = x.unsqueeze(0)
     elif x.dim() != 3:
         raise ValueError(f"Unsupported clinic tensor shape: {tuple(x.shape)}")
@@ -52,7 +54,7 @@ class MLPClinic(nn.Module):
         classifier_in_dim = hidden_dim if pooling == "mean" else hidden_dim * clinic_num_tokens
         self.classifier = nn.Linear(classifier_in_dim, n_classes)
 
-    def forward(self, **kwargs):
+    def forward(self, return_feats: bool = False, **kwargs):
         x = _extract_clinic_tensor(kwargs)
         h = self.token_net(x)
 
@@ -61,7 +63,10 @@ class MLPClinic(nn.Module):
         else:
             pooled = h.reshape(h.shape[0], -1)
 
-        return self.classifier(pooled)
+        logits = self.classifier(pooled)
+        if return_feats:
+            return pooled, logits
+        return logits
 
     def captum(self, clinic):
         logits = self.forward(x_clinic=clinic)

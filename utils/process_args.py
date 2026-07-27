@@ -94,9 +94,31 @@ def _process_args():
     parser.add_argument('--clip_weight_IT', type=float, default=1.0, help='CLIP I-T pair weight')
     parser.add_argument('--clip_weight_IS', type=float, default=1.0, help='CLIP I-S pair weight')
     parser.add_argument('--clip_weight_TS', type=float, default=1.0, help='CLIP T-S pair weight')
+    parser.add_argument('--label_dim', type=int, default=1, help='survival head output dim; Cox uses 1')
+    parser.add_argument('--poe_variant', type=str, default='A', choices=['A', 'B', 'C'],
+                        help='TriPoEVAE training variant: A=freeze+linear probe, B=pretrain+finetune, C=joint train')
+    parser.add_argument('--poe_surv_lambda', type=float, default=1.0,
+                        help='survival loss weight for TriPoEVAE variant C')
+    parser.add_argument('--poe_modality_dropout', type=float, default=0.2,
+                        help='modality dropout probability in TriPoEVAE VAE training')
+    parser.add_argument('--poe_decoder_hidden_dim', type=int, default=512,
+                        help='decoder hidden dim for TriPoEVAE')
+    parser.add_argument('--poe_mmhid', type=int, default=256,
+                        help='fusion hidden dim for TriPoEVAE survival head')
+    parser.add_argument('--poe_beta_target', type=float, default=1.0,
+                        help='target beta for TriPoEVAE Jeffreys warmup')
+    parser.add_argument('--poe_transformer_layers', type=int, default=1,
+                        help='number of transformer layers for gene/clinic encoders in TriPoEVAE')
 
     #---> model related
     parser.add_argument('--fusion', type=str, default=None, choices=['concat', 'bilinear'])
+    parser.add_argument(
+        '--selected_modalities',
+        type=str,
+        default='wsi,gene,clinic',
+        choices=['wsi,gene', 'wsi,clinic', 'gene,clinic', 'wsi,gene,clinic'],
+        help='selected modalities for SurvTri models',
+    )
     parser.add_argument('--modality', type=str, default="survpgc_f",
                         choices=[
                             # unimodal G (csv)
@@ -119,6 +141,12 @@ def _process_args():
                             'survfusion_noalign',
                             # ablation exp2: joint CLIP + survival loss
                             'survfusion_joint',
+                            # trimodal concat / attention baselines
+                            'survtri_snn_concat',
+                            'survtri_snn_mhsa',
+                            'survtri_mlp_concat',
+                            'survtri_mlp_mhsa',
+                            'survtri_poe_vae',
                             # ablation WSI+C
                             'survpc_f',
                             # ablation G+C
@@ -153,13 +181,21 @@ conda activate SurvPGC
 
 python main.py \
   --study tcga_kirc \
-  --modality abmil_wsi \
+  --modality survtri_mlp_mhsa \
+  --selected_modalities wsi,gene \
   --type_of_path combine \
   --data_root_dir SurvPGC_Workspace/P/uni_v2 \
+  --num_heads 8 \
   --k 1
 
   --fusion bilinear \
   --fusion_type mean_concat \
+
+                            'survtri_snn_concat',
+                            'survtri_snn_mhsa',
+                            'survtri_mlp_concat',
+                            'survtri_mlp_mhsa',
+choices=['wsi,gene', 'wsi,clinic', 'gene,clinic', 'wsi,gene,clinic'],
 
 '''
 
@@ -196,7 +232,10 @@ survfusion_f
 'survfusion_mlpcontact', 
 'survfusion_mhsaconcat', 
 'survfusion_noalign'
-
+                            'survtri_snn_concat',
+                            'survtri_snn_mhsa',
+                            'survtri_mlp_concat',
+                            'survtri_mlp_mhsa',
 # 消融：WSI + C（去掉G）
 survpc
 survpc_f

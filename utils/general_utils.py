@@ -162,6 +162,7 @@ def _get_custom_exp_code(args):
     param_code += "_epochs_" + str(args.max_epochs)
     param_code += "_fusion_" + str(args.fusion)
     param_code += "_modality_" + str(args.modality)
+    param_code += "_selected_" + str(args.selected_modalities).replace(",", "_")
     param_code += "_pathT_" + str(args.type_of_path)
 
     #----> Updating
@@ -222,6 +223,13 @@ def _create_results_dir(args):
             w_is = int(getattr(args, 'clip_weight_IS', 1.0))
             w_ts = int(getattr(args, 'clip_weight_TS', 1.0))
             folder += f"_{w_it}_{w_is}_{w_ts}"
+    elif args.modality in {
+        "survtri_snn_concat",
+        "survtri_snn_mhsa",
+        "survtri_mlp_concat",
+        "survtri_mlp_mhsa",
+    } and getattr(args, "selected_modalities", "wsi,gene,clinic") != "wsi,gene,clinic":
+        folder = f"{args.modality}__{args.selected_modalities.replace(',', '_')}"
     else:
         folder = args.modality
 
@@ -621,7 +629,17 @@ def _get_split_loader(args, split_dataset, training = False, testing = False, we
         collate_fn = _collate_survpath
     elif args.modality == "survpath_f":
         collate_fn = _collate_survpath_f
-    elif args.modality in ["survpgc_f", "survfusion_separate", "survfusion_noalign", "survfusion_joint"]:
+    elif args.modality in [
+        "survpgc_f",
+        "survfusion_separate",
+        "survfusion_noalign",
+        "survfusion_joint",
+        "survtri_snn_concat",
+        "survtri_snn_mhsa",
+        "survtri_mlp_concat",
+        "survtri_mlp_mhsa",
+        "survtri_poe_vae",
+    ]:
         collate_fn = _collate_survpgc_f
     elif args.modality in ["survpc", "survpc_f", "mlppc_concat"]:
         collate_fn = _collate_survpc_f

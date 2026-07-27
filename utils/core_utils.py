@@ -26,6 +26,11 @@ from models.model_CoxClinic import CoxClinic
 from models.model_SurvFusion_separate import SurvFusion
 from models.model_SurvFusion_noalign import SurvFusionNoAlign
 from models.model_SurvFusion_joint import SurvFusionJoint
+from models.model_SurvTriSNN_concat import SurvTriSNNConcat
+from models.model_SurvTriSNN_mhsa import SurvTriSNNMHSA
+from models.model_SurvTriMLP_concat import SurvTriMLPConcat
+from models.model_SurvTriMLP_mhsa import SurvTriMLPMHSA
+from models.model_SurvTriPoEVAE import SurvTriPoEVAE
 from sksurv.metrics import concordance_index_censored, concordance_index_ipcw, brier_score, integrated_brier_score, cumulative_dynamic_auc
 from sksurv.util import Surv
 
@@ -53,6 +58,13 @@ CLINIC_MODALITIES = {
     "snn_clinic_mean", "snn_clinic_flatten",
     "clinic_cox",
 }
+TRIMODAL_MODALITIES = {
+    "survtri_snn_concat",
+    "survtri_snn_mhsa",
+    "survtri_mlp_concat",
+    "survtri_mlp_mhsa",
+}
+POE_MODALITIES = {"survtri_poe_vae"}
 
 
 
@@ -119,23 +131,24 @@ def _init_optim(args, model):
         - optimizer : torch optim 
     """
     print('\nInit optimizer ...', end=' ')
+    trainable_params = filter(lambda p: p.requires_grad, model.parameters())
 
     if args.opt == "adam":
-        optimizer = optim.Adam(model.parameters(), lr=args.lr)
+        optimizer = optim.Adam(trainable_params, lr=args.lr)
     elif args.opt == 'sgd':
-        optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.reg)
+        optimizer = optim.SGD(trainable_params, lr=args.lr, momentum=0.9, weight_decay=args.reg)
     elif args.opt == "adamW":
-        optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.reg)
+        optimizer = optim.AdamW(trainable_params, lr=args.lr, weight_decay=args.reg)
     elif args.opt == "radam":
-        optimizer = RAdam(model.parameters(), lr=args.lr, weight_decay=args.reg)
+        optimizer = RAdam(trainable_params, lr=args.lr, weight_decay=args.reg)
     elif args.opt == "lamb":
-        optimizer = Lambda(model.parameters(), lr=args.lr, weight_decay=args.reg)
+        optimizer = Lambda(trainable_params, lr=args.lr, weight_decay=args.reg)
     else:
         raise NotImplementedError
 
     return optimizer
 
-def _init_model(args):
+def _init_model(args, current_fold=None):
 
     print('\nInit Model...', end=' ')
     if args.type_of_path == "xena":
@@ -155,7 +168,7 @@ def _init_model(args):
 
     # For prompt-clinic modalities, infer the number of clinic tokens dynamically
     # by peeking at a sample .pt file, so the model handles any [n, 512] shape.
-    _PROMPT_CLINIC_MODALITIES = {'survpgc_f', 'survgc_f', 'survpc_f'} | CLINIC_MODALITIES
+    _PROMPT_CLINIC_MODALITIES = {'survpgc_f', 'survgc_f', 'survpc_f'} | CLINIC_MODALITIES | TRIMODAL_MODALITIES | POE_MODALITIES
     if args.modality in _PROMPT_CLINIC_MODALITIES:
         import glob as _glob
         _clinic_files = _glob.glob(os.path.join(args.clinic_dir, '*.pt'))
@@ -352,6 +365,76 @@ def _init_model(args):
         }
         model = SurvFusionJoint(**model_dict)
 
+    elif args.modality == 'survtri_snn_concat':
+        model_dict = {
+            'study': args.study,
+            'current_fold': current_fold,
+            'num_classes': args.n_classes,
+            'wsi_embedding_dim': args.encoding_dim,
+            'clinic_num_tokens': clinic_num_tokens,
+            'single_model_size': args.single_model_size,
+            'dropout': args.encoder_dropout,
+            'selected_modalities': args.selected_modalities,
+        }
+        model = SurvTriSNNConcat(**model_dict)
+
+    elif args.modality == 'survtri_snn_mhsa':
+        model_dict = {
+            'study': args.study,
+            'current_fold': current_fold,
+            'num_classes': args.n_classes,
+            'wsi_embedding_dim': args.encoding_dim,
+            'clinic_num_tokens': clinic_num_tokens,
+            'single_model_size': args.single_model_size,
+            'dropout': args.encoder_dropout,
+            'num_heads': args.num_heads,
+            'selected_modalities': args.selected_modalities,
+        }
+        model = SurvTriSNNMHSA(**model_dict)
+
+    elif args.modality == 'survtri_mlp_concat':
+        model_dict = {
+            'study': args.study,
+            'current_fold': current_fold,
+            'num_classes': args.n_classes,
+            'wsi_embedding_dim': args.encoding_dim,
+            'clinic_num_tokens': clinic_num_tokens,
+            'single_model_size': args.single_model_size,
+            'dropout': args.encoder_dropout,
+            'selected_modalities': args.selected_modalities,
+        }
+        model = SurvTriMLPConcat(**model_dict)
+
+    elif args.modality == 'survtri_mlp_mhsa':
+        model_dict = {
+            'study': args.study,
+            'current_fold': current_fold,
+            'num_classes': args.n_classes,
+            'wsi_embedding_dim': args.encoding_dim,
+            'clinic_num_tokens': clinic_num_tokens,
+            'single_model_size': args.single_model_size,
+            'dropout': args.encoder_dropout,
+            'num_heads': args.num_heads,
+            'selected_modalities': args.selected_modalities,
+        }
+        model = SurvTriMLPMHSA(**model_dict)
+
+    elif args.modality == 'survtri_poe_vae':
+        model_dict = {
+            'clinic_num_tokens': clinic_num_tokens,
+            'wsi_embedding_dim': args.encoding_dim,
+            'latent_dim': 128,
+            'mmhid': args.poe_mmhid,
+            'label_dim': args.label_dim,
+            'decoder_hidden_dim': args.poe_decoder_hidden_dim,
+            'poe_variant': args.poe_variant,
+            'poe_surv_lambda': args.poe_surv_lambda,
+            'modality_dropout_prob': args.poe_modality_dropout,
+            'transformer_dropout': args.encoder_dropout,
+            'transformer_layers': args.poe_transformer_layers,
+        }
+        model = SurvTriPoEVAE(**model_dict)
+
     else:
         raise NotImplementedError
 
@@ -513,7 +596,17 @@ def _unpack_data(modality, device, data):
         data_clinic = None
         y_disc, event_time, censor, clinical_data_list = data[2], data[3], data[4], data[5]
 
-    elif modality in ["survpgc_f", "survfusion_separate", "survfusion_noalign", "survfusion_joint"]:
+    elif modality in [
+        "survpgc_f",
+        "survfusion_separate",
+        "survfusion_noalign",
+        "survfusion_joint",
+        "survtri_snn_concat",
+        "survtri_snn_mhsa",
+        "survtri_mlp_concat",
+        "survtri_mlp_mhsa",
+        "survtri_poe_vae",
+    ]:
         data_WSI = data[0].to(device)
         data_omics = data[1].to(device)
         data_clinic = data[2].to(device)
@@ -648,6 +741,21 @@ def _process_data_and_forward(args, model, modality, device, data):
             x_clinic=data_clinic.to(device),
         )
 
+    elif modality in TRIMODAL_MODALITIES:
+        out = model(
+            x_path=data_WSI.to(device),
+            x_omic=data_omics.to(device),
+            x_clinic=data_clinic.to(device),
+        )
+
+    elif modality in POE_MODALITIES:
+        out = model(
+            x_path=data_WSI.to(device),
+            x_omic=data_omics.to(device),
+            x_clinic=data_clinic.to(device),
+            wsi_mask=mask,
+        )
+
     elif modality in CLINIC_MODALITIES:
         input_args = {"x_path": data_WSI.to(device)}
         input_args["x_clinic"] = data_clinic.to(device)
@@ -718,6 +826,15 @@ def _update_arrays(all_risk_scores, all_censorships, all_event_times, all_clinic
     all_clinical_data.append(clinical_data_list)
     return all_risk_scores, all_censorships, all_event_times, all_clinical_data
 
+
+def _get_poe_beta(args, epoch):
+    warmup_epochs = max(0, int(args.warmup_epochs))
+    beta_target = float(args.poe_beta_target)
+    if warmup_epochs <= 1:
+        return beta_target
+    progress = min(1.0, epoch / float(warmup_epochs - 1))
+    return beta_target * progress
+
 def _train_loop_survival(args, epoch, model, modality, loader, optimizer, scheduler, loss_fn):
     r"""
     Perform one epoch of training 
@@ -744,6 +861,7 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
     all_censorships = []
     all_event_times = []
     all_clinical_data = []
+    beta = _get_poe_beta(args, epoch) if modality in POE_MODALITIES else None
 
     # one epoch
     for batch_idx, data in enumerate(loader):
@@ -772,7 +890,11 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
             loss = loss / y_disc.shape[0]
         elif args.bag_loss == 'cox_surv':
             h, y_disc, event_time, censor, clinical_data_list = _process_data_and_forward(args, model, modality, device, data)
-            loss = loss_fn(h=h, t=event_time, c=censor)
+            survival_loss = loss_fn(h=h, t=event_time, c=censor)
+            if modality in POE_MODALITIES:
+                loss = model.combine_loss(survival_loss, beta=beta)
+            else:
+                loss = survival_loss
             loss_value = loss.item()
         else:
             raise ValueError('Unsupported loss function:', args.bag_loss)
@@ -793,6 +915,16 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
         if modality in ["survfusion_noalign", "survfusion_joint"]:
             processed = min(batch_idx * loader.batch_size, len(loader.dataset))
             print("batch: {}, loss: {:.3f}".format(processed, loss.item()))
+        elif modality in POE_MODALITIES:
+            cached = model.get_cached_outputs()
+            print(
+                "batch: {}, loss: {:.3f}, recon: {:.3f}, jeffreys: {:.3f}".format(
+                    batch_idx,
+                    loss.item(),
+                    cached["recon_total"].item(),
+                    cached["jeffreys"].item(),
+                )
+            )
         elif (batch_idx % 20) == 0:
             print("batch: {}, loss: {:.3f}".format(batch_idx, loss.item()))
     
@@ -1004,6 +1136,21 @@ def _summary(args, dataset_factory, model, modality, loader, loss_fn, survival_t
                     x_clinic=data_clinic.to(device),
                 )
 
+            elif modality in TRIMODAL_MODALITIES:
+                h = model(
+                    x_path=data_WSI.to(device),
+                    x_omic=data_omics.to(device),
+                    x_clinic=data_clinic.to(device),
+                )
+
+            elif modality in POE_MODALITIES:
+                h = model(
+                    x_path=data_WSI.to(device),
+                    x_omic=data_omics.to(device),
+                    x_clinic=data_clinic.to(device),
+                    wsi_mask=mask,
+                )
+
             elif modality in ['mlp_clinic_mean', 'mlp_clinic_flatten', 'snn_clinic_mean', 'snn_clinic_flatten', 'clinic_cox']:
                 input_args = {"x_path": data_WSI.to(device)}
                 input_args['x_clinic'] = data_clinic.to(device)
@@ -1025,7 +1172,11 @@ def _summary(args, dataset_factory, model, modality, loader, loss_fn, survival_t
             elif args.bag_loss == 'nll_diff_surv':
                 loss = loss_fn(input1=tensor1, input2=tensor2, h=h, y=y_disc, t=event_time, c=censor)
             elif args.bag_loss == 'cox_surv':
-                loss = loss_fn(h=h, t=event_time, c=censor)
+                survival_loss = loss_fn(h=h, t=event_time, c=censor)
+                if modality in POE_MODALITIES:
+                    loss = model.combine_loss(survival_loss, beta=args.poe_beta_target)
+                else:
+                    loss = survival_loss
             loss_value = loss.item()
             if args.bag_loss != 'cox_surv':
                 loss = loss / y_disc.shape[0]
@@ -1105,6 +1256,86 @@ def _val_loop_stage1(model, loader):
 
     total_loss /= len(loader)
     return total_loss
+
+
+def _train_loop_stage1_poe(args, epoch, model, loader, optimizer, scheduler):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.train()
+    model.set_training_stage("stage1")
+    total_loss = 0.
+    beta = _get_poe_beta(args, epoch)
+
+    for batch_idx, data in enumerate(loader):
+        optimizer.zero_grad()
+        data_WSI, mask, _, _, _, data_omics, _, data_clinic = _unpack_data("survtri_poe_vae", device, data)
+        model(
+            x_path=data_WSI,
+            x_omic=data_omics,
+            x_clinic=data_clinic,
+            wsi_mask=mask,
+        )
+        vae_loss = model.get_vae_loss(beta=beta)
+        vae_loss.backward()
+        optimizer.step()
+        scheduler.step()
+        total_loss += vae_loss.item()
+        cached = model.get_cached_outputs()
+        print(
+            "TriPoEVAE Stage1 batch: {}, loss: {:.4f}, recon: {:.4f}, jeffreys: {:.4f}, beta: {:.3f}".format(
+                batch_idx * loader.batch_size,
+                vae_loss.item(),
+                cached["recon_total"].item(),
+                cached["jeffreys"].item(),
+                beta,
+            )
+        )
+
+    total_loss /= len(loader)
+    print("TriPoEVAE Stage1 Epoch {}: train_vae_loss={:.4f}".format(epoch, total_loss))
+    return total_loss
+
+
+def _val_loop_stage1_poe(args, epoch, model, loader):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.eval()
+    model.set_training_stage("stage1")
+    total_loss = 0.
+    beta = _get_poe_beta(args, epoch)
+
+    with torch.no_grad():
+        for data in loader:
+            data_WSI, mask, _, _, _, data_omics, _, data_clinic = _unpack_data("survtri_poe_vae", device, data)
+            model(
+                x_path=data_WSI,
+                x_omic=data_omics,
+                x_clinic=data_clinic,
+                wsi_mask=mask,
+            )
+            total_loss += model.get_vae_loss(beta=beta).item()
+
+    total_loss /= len(loader)
+    return total_loss
+
+
+def _step_stage1_poe(cur, args, model, train_loader, val_loader):
+    optimizer = optim.AdamW(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=args.lr_stage1,
+        weight_decay=args.reg,
+    )
+    total_steps = args.max_epochs_stage1 * len(train_loader)
+    warmup_steps = len(train_loader)
+    scheduler = get_cosine_schedule_with_warmup(optimizer, warmup_steps, total_steps)
+
+    val_loss_min = float('inf')
+    for epoch in range(args.max_epochs_stage1):
+        _train_loop_stage1_poe(args, epoch, model, train_loader, optimizer, scheduler)
+        val_loss = _val_loop_stage1_poe(args, epoch, model, val_loader)
+        print("TriPoEVAE Stage1 Val loss: {:.4f}".format(val_loss))
+        if val_loss < val_loss_min:
+            val_loss_min = val_loss
+            torch.save(model, os.path.join(args.results_dir, "s_{}_stage1_checkpoint.pt".format(cur)))
+            print("TriPoEVAE Stage1 Epoch {} is the best.".format(epoch))
 
 
 def _step_stage1(cur, args, model, train_loader, val_loader):
@@ -1239,8 +1470,11 @@ def _train_val_test(datasets, cur, args):
     #----> init loss function
     loss_fn = _init_loss_function(args)
 
+    if args.modality in POE_MODALITIES and args.bag_loss != 'cox_surv':
+        raise ValueError("survtri_poe_vae currently supports only `cox_surv`.")
+
     #----> init model
-    model = _init_model(args)
+    model = _init_model(args, current_fold=cur)
 
     #---> init loaders (stage2 / normal loaders, batch_size=1)
     train_loader, val_loader, test_loader = _init_loaders(args, train_split, val_split, test_split)
@@ -1260,6 +1494,24 @@ def _train_val_test(datasets, cur, args):
         )
         model.freeze_stage1_modules()
         model.set_training_stage("stage2")
+        if torch.cuda.is_available():
+            model = model.to(torch.device('cuda'))
+
+    if args.modality in POE_MODALITIES and args.poe_variant in {'A', 'B'}:
+        stage1_train_loader = _get_split_loader(
+            args, train_split, training=True, testing=False,
+            weighted=args.weighted_sample, batch_size=args.batch_size_stage1
+        )
+        _step_stage1_poe(cur, args, model, stage1_train_loader, val_loader)
+
+        model = torch.load(
+            os.path.join(args.results_dir, "s_{}_stage1_checkpoint.pt".format(cur)),
+            weights_only=False
+        )
+        if args.poe_variant == 'A':
+            model.freeze_backbone_for_probe()
+        else:
+            model.set_training_stage("stage2")
         if torch.cuda.is_available():
             model = model.to(torch.device('cuda'))
 

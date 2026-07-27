@@ -150,6 +150,7 @@ write_effective_config() {
         MAX_EPOCHS_STAGE1
         BATCH_SIZE_STAGE1
         FUSION
+        SELECTED_MODALITIES
         FUSION_TYPE
         NUM_HEADS
         CLIP_LAMBDA
@@ -278,6 +279,7 @@ cmd=(
     --reg "$REG"
     --lr_scheduler "$LR_SCHEDULER"
     --warmup_epochs "$WARMUP_EPOCHS"
+    --selected_modalities "$SELECTED_MODALITIES"
     --modality "$MODEL"
     --encoding_dim "$ENCODING_DIM"
     "${EXTRA_ARGS[@]}"

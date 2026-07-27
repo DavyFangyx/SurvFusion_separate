@@ -95,6 +95,40 @@ apply_preset() {
             MODEL="survgc_f"
             RESULTS_SUBDIR="$MODEL"
             ;;
+        survtri_snn_concat)
+            MODEL="survtri_snn_concat"
+            RESULTS_SUBDIR="$MODEL"
+            if [ "$SELECTED_MODALITIES" != "wsi,gene,clinic" ]; then
+                RESULTS_SUBDIR="${MODEL}__${SELECTED_MODALITIES//,/_}"
+            fi
+            ;;
+        survtri_snn_mhsa)
+            MODEL="survtri_snn_mhsa"
+            RESULTS_SUBDIR="$MODEL"
+            if [ "$SELECTED_MODALITIES" != "wsi,gene,clinic" ]; then
+                RESULTS_SUBDIR="${MODEL}__${SELECTED_MODALITIES//,/_}"
+            fi
+            EXTRA_ARGS=(
+                --num_heads "$NUM_HEADS"
+            )
+            ;;
+        survtri_mlp_concat)
+            MODEL="survtri_mlp_concat"
+            RESULTS_SUBDIR="$MODEL"
+            if [ "$SELECTED_MODALITIES" != "wsi,gene,clinic" ]; then
+                RESULTS_SUBDIR="${MODEL}__${SELECTED_MODALITIES//,/_}"
+            fi
+            ;;
+        survtri_mlp_mhsa)
+            MODEL="survtri_mlp_mhsa"
+            RESULTS_SUBDIR="$MODEL"
+            if [ "$SELECTED_MODALITIES" != "wsi,gene,clinic" ]; then
+                RESULTS_SUBDIR="${MODEL}__${SELECTED_MODALITIES//,/_}"
+            fi
+            EXTRA_ARGS=(
+                --num_heads "$NUM_HEADS"
+            )
+            ;;
 
         # ========== SurvFusion 变体 ==========
         survfusion_noalign)
