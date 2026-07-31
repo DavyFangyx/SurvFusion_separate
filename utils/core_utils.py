@@ -457,18 +457,39 @@ def _init_loaders(args, train_split, val_split, test_split):
     """
 
     print('\nInit Loaders...', end=' ')
+    disable_cox_batch_override = args.modality in POE_MODALITIES
     if train_split:
-        train_loader = _get_split_loader(args, train_split, training=True, testing=False, weighted=args.weighted_sample, batch_size=args.batch_size)
+        train_loader = _get_split_loader(
+            args,
+            train_split,
+            training=True,
+            testing=False,
+            weighted=args.weighted_sample,
+            batch_size=args.batch_size,
+            disable_cox_batch_override=disable_cox_batch_override,
+        )
     else:
         train_loader = None
 
     if val_split:
-        val_loader = _get_split_loader(args, val_split,  testing=False, batch_size=1)
+        val_loader = _get_split_loader(
+            args,
+            val_split,
+            testing=False,
+            batch_size=1,
+            disable_cox_batch_override=disable_cox_batch_override,
+        )
     else:
         val_loader = None
 
     if test_split:
-        test_loader = _get_split_loader(args, test_split, testing=False, batch_size=1)
+        test_loader = _get_split_loader(
+            args,
+            test_split,
+            testing=False,
+            batch_size=1,
+            disable_cox_batch_override=disable_cox_batch_override,
+        )
     else:
         test_loader = None
     print('Done!')
@@ -927,7 +948,11 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
     all_risk_scores = np.concatenate(all_risk_scores, axis=0)
     all_censorships = np.concatenate(all_censorships, axis=0)
     all_event_times = np.concatenate(all_event_times, axis=0)
-    c_index = concordance_index_censored((1-all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
+    try:
+        c_index = concordance_index_censored((1-all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
+    except ValueError as exc:
+        print(f"Warning: train c-index unavailable ({exc}); set to 0.")
+        c_index = 0.
 
     print('Epoch: {}, train_loss: {:.4f}, train_c_index: {:.4f}'.format(epoch, total_loss, c_index))
 
@@ -968,7 +993,11 @@ def _calculate_metrics(args, loader, dataset_factory, survival_train, all_risk_s
     all_event_times = np.delete(all_event_times, np.argwhere(np.isnan(original_risk_scores)))
     #<---
 
-    c_index = concordance_index_censored((1-all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
+    try:
+        c_index = concordance_index_censored((1-all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
+    except ValueError as exc:
+        print(f'Warning: c-index unavailable ({exc}); set to 0.')
+        c_index = 0.
     c_index_ipcw, BS, IBS, iauc, iauc_list = 0., 0., 0., 0., 0.
 
     # change the datatype of survival test to calculate metrics 
@@ -1495,7 +1524,7 @@ def _train_val_test(datasets, cur, args):
     if args.modality in POE_MODALITIES and args.poe_variant in {'A', 'B'}:
         stage1_train_loader = _get_split_loader(
             args, train_split, training=True, testing=False,
-            weighted=args.weighted_sample, batch_size=1
+            weighted=args.weighted_sample, batch_size=1, disable_cox_batch_override=True
         )
         _step_stage1_poe(cur, args, model, stage1_train_loader, val_loader)
 

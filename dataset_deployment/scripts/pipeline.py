@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-PROJ_ROOT = Path(__file__).resolve().parents[1]
+PROJ_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJ_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJ_ROOT))
 
@@ -39,6 +39,16 @@ METADATA_COLUMNS = [
 ]
 CLINICAL_COLUMNS = ["case_id", "stage", "subtype", "grade"]
 MANIFEST_COLUMNS = ["case_id", "source_file", "workspace_file", "modality", "embedding"]
+
+
+def get_rna_case_cache_path(study: str) -> Path:
+    cache_dir = PROJ_ROOT / "dataset_deployment" / "mappings"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir / f"{study}_rna_file_case_map.csv"
+
+
+def get_rna_case_supplement_path(study: str) -> Path:
+    return PROJ_ROOT / "dataset_deployment" / "supplement_files" / f"{study}_rna_file_case_mapping.csv"
 
 
 def resolve_studies(study: str | None, run_all: bool) -> list[str]:
@@ -169,6 +179,50 @@ def load_manifest_file_ids(path_str: str | None) -> dict[str, str]:
         }
 
 
+def load_cached_file_case_mapping(cache_path: Path) -> dict[str, tuple[str, str | None]]:
+    if not cache_path.exists():
+        return {}
+    df = pd.read_csv(cache_path)
+    mapping = {}
+    for _, row in df.iterrows():
+        file_name = str(row.get("file_name", "")).strip()
+        patient_id = normalize_patient_id(row.get("case_id") or row.get("submitter_id"))
+        case_uuid = str(row.get("case_uuid", "")).strip() or None
+        if file_name and patient_id:
+            mapping[file_name] = (patient_id, case_uuid)
+    return mapping
+
+
+def load_supplement_file_case_mapping(study: str) -> dict[str, tuple[str, str | None]]:
+    supplement_path = get_rna_case_supplement_path(study)
+    if not supplement_path.exists():
+        return {}
+    df = pd.read_csv(supplement_path)
+    mapping: dict[str, tuple[str, str | None]] = {}
+    for _, row in df.iterrows():
+        file_name = str(row.get("file_name", "")).strip()
+        patient_id = normalize_patient_id(row.get("submitter_id") or row.get("case_id"))
+        case_uuid = str(row.get("case_id", "")).strip() or None
+        if file_name and patient_id:
+            mapping[file_name] = (patient_id, case_uuid)
+    return mapping
+
+
+def save_cached_file_case_mapping(cache_path: Path, mapping: dict[str, tuple[str, str | None]]) -> None:
+    rows = []
+    for file_name, (patient_id, case_uuid) in sorted(mapping.items()):
+        rows.append(
+            {
+                "file_name": file_name,
+                "case_id": patient_id,
+                "submitter_id": patient_id,
+                "case_uuid": case_uuid or "",
+            }
+        )
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows, columns=["file_name", "case_id", "submitter_id", "case_uuid"]).to_csv(cache_path, index=False)
+
+
 def fetch_gdc_file_mapping(file_ids: list[str]) -> dict[str, tuple[str, str | None]]:
     if not file_ids:
         return {}
@@ -245,6 +299,9 @@ def build_gene_lookup(
 ) -> tuple[dict[str, tuple[str, Path]], list[str]]:
     file_map = load_sample_sheet_maps(config.raw.case_dirs)
     file_map.update(load_metadata_maps(config.raw.case_dirs))
+    file_map.update(load_supplement_file_case_mapping(config.study))
+    cache_path = get_rna_case_cache_path(config.study)
+    file_map.update(load_cached_file_case_mapping(cache_path))
     gene_files = iter_files(Path(config.raw.gene_root), "*.rna_seq.augmented_star_gene_counts.tsv")
     gene_paths = {path.name: path for path in gene_files}
     unmapped = [name for name in gene_paths if name not in file_map]
@@ -254,7 +311,12 @@ def build_gene_lookup(
         file_ids = [manifest_map[name] for name in unmapped if name in manifest_map]
         if file_ids:
             try:
-                file_map.update(fetch_gdc_file_mapping(file_ids))
+                fetched_mapping = fetch_gdc_file_mapping(file_ids)
+                file_map.update(fetched_mapping)
+                if fetched_mapping:
+                    cached_mapping = load_cached_file_case_mapping(cache_path)
+                    cached_mapping.update(fetched_mapping)
+                    save_cached_file_case_mapping(cache_path, cached_mapping)
             except (urllib.error.URLError, TimeoutError, OSError) as exc:
                 print(f"[WARN] GDC API lookup failed for {config.study}: {exc}")
 
@@ -594,33 +656,6 @@ def generate_feature_manifest_for_study(
     return {"study": study, "rows": len(rows), "output": str(output_path), "unresolved_gene_files": unresolved_gene_files}
 
 
-def load_case_ids(metadata_csv: Path) -> list[str]:
-    df = pd.read_csv(metadata_csv)
-    if "case_id" not in df.columns:
-        raise ValueError(f"{metadata_csv} missing case_id column")
-    return sorted(df["case_id"].dropna().astype(str).drop_duplicates().tolist())
-
-
-def save_split_csv(train_ids: list[str], val_ids: list[str], output_path: Path) -> None:
-    max_len = max(len(train_ids), len(val_ids))
-    with output_path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(["", "train", "val", "test"])
-        for index in range(max_len):
-            train_value = train_ids[index] if index < len(train_ids) else ""
-            val_value = val_ids[index] if index < len(val_ids) else ""
-            writer.writerow([index, train_value, val_value, val_value])
-
-
-def build_folds(case_ids: list[str], n_splits: int, seed: int) -> list[list[str]]:
-    shuffled = list(case_ids)
-    random.Random(seed).shuffle(shuffled)
-    folds = [[] for _ in range(n_splits)]
-    for index, case_id in enumerate(shuffled):
-        folds[index % n_splits].append(case_id)
-    return folds
-
-
 def generate_splits_for_study(
     study: str,
     *,
@@ -629,38 +664,15 @@ def generate_splits_for_study(
     n_splits: int = 5,
     seed: int = 1,
 ) -> dict[str, object]:
-    config = get_dataset_config(study)
-    metadata_csv = Path(config.metadata_csv)
-    output_dir = Path(config.split_dir)
-    if dry_run and not metadata_csv.exists():
-        return {
-            "study": study,
-            "folds": n_splits,
-            "cases": None,
-            "output": str(output_dir),
-            "metadata_exists": False,
-            "mode": "dry-run",
-        }
-    if validate_only:
-        for fold in range(n_splits):
-            split_path = output_dir / f"splits_{fold}.csv"
-            df = pd.read_csv(split_path)
-            for column in ("train", "val", "test"):
-                if column not in df.columns:
-                    raise ValueError(f"{split_path} missing column {column}")
-        return {"study": study, "folds": n_splits, "output": str(output_dir), "mode": "validate"}
+    from dataset_deployment.scripts.generate_5fold_splits import generate_splits_for_study as _generate_splits_for_study
 
-    case_ids = load_case_ids(metadata_csv)
-    if len(case_ids) < n_splits:
-        raise ValueError(f"{study} has only {len(case_ids)} cases in metadata, not enough for {n_splits} folds.")
-    folds = build_folds(case_ids, n_splits=n_splits, seed=seed)
-    if dry_run:
-        return {"study": study, "folds": n_splits, "cases": len(case_ids), "output": str(output_dir)}
-    output_dir.mkdir(parents=True, exist_ok=True)
-    for fold, val_ids in enumerate(folds):
-        train_ids = [case_id for idx, fold_cases in enumerate(folds) if idx != fold for case_id in fold_cases]
-        save_split_csv(train_ids, val_ids, output_dir / f"splits_{fold}.csv")
-    return {"study": study, "folds": n_splits, "cases": len(case_ids), "output": str(output_dir)}
+    return _generate_splits_for_study(
+        study,
+        dry_run=dry_run,
+        validate_only=validate_only,
+        n_splits=n_splits,
+        seed=seed,
+    )
 
 
 def validate_workspace_for_study(

@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 
 from models.model_utils import (
-    GeneClinicEncoder,
     GeneralizedPoE,
     JeffreysDivergence,
     ModalityDecoder,
     ReconstructionLoss,
-    WSIEncoderVIB,
+    TokenSetEncoder,
+    WSIMILResampler,
     WSITargetPoolingHead,
     modality_dropout,
     reparameterize,
@@ -31,6 +31,8 @@ class SurvTriPoEVAE(nn.Module):
         modality_dropout_prob=0.2,
         transformer_dropout=0.1,
         transformer_layers=1,
+        wsi_resampler_tokens=16,
+        wsi_resampler_layers=2,
     ):
         super().__init__()
         self.gene_num_tokens = gene_num_tokens
@@ -52,16 +54,24 @@ class SurvTriPoEVAE(nn.Module):
         self.training_stage = "stage1" if self.poe_variant in {"A", "B"} else "stage2"
         self.backbone_frozen = False
 
-        self.wsi_encoder = WSIEncoderVIB(
+        self.wsi_resampler = WSIMILResampler(
             input_dim=wsi_embedding_dim,
             token_dim=768,
+            num_tokens=wsi_resampler_tokens,
+            nhead=8,
+            mlp_dim=1024,
+            num_layers=wsi_resampler_layers,
+            dropout=transformer_dropout,
+        )
+        self.wsi_encoder = TokenSetEncoder(
+            input_dim=768,
             latent_dim=latent_dim,
             nhead=8,
             mlp_dim=1024,
-            num_layers=2,
+            num_layers=transformer_layers,
             dropout=transformer_dropout,
         )
-        self.gene_encoder = GeneClinicEncoder(
+        self.gene_encoder = TokenSetEncoder(
             input_dim=gene_embedding_dim,
             latent_dim=latent_dim,
             nhead=8,
@@ -69,7 +79,7 @@ class SurvTriPoEVAE(nn.Module):
             num_layers=transformer_layers,
             dropout=transformer_dropout,
         )
-        self.clinic_encoder = GeneClinicEncoder(
+        self.clinic_encoder = TokenSetEncoder(
             input_dim=clinic_embedding_dim,
             latent_dim=latent_dim,
             nhead=8,
@@ -78,15 +88,15 @@ class SurvTriPoEVAE(nn.Module):
             dropout=transformer_dropout,
         )
 
-        self.wsi_target_head = WSITargetPoolingHead(token_dim=768, output_dim=wsi_embedding_dim)
+        self.wsi_target_head = WSITargetPoolingHead(token_dim=768, output_dim=768)
         self.poe = GeneralizedPoE(num_modalities=3)
 
-        self.decoder_wsi = ModalityDecoder(latent_dim, decoder_hidden_dim, wsi_embedding_dim)
+        self.decoder_wsi = ModalityDecoder(latent_dim, decoder_hidden_dim, 768)
         self.decoder_gene = ModalityDecoder(latent_dim, decoder_hidden_dim, gene_num_tokens * gene_embedding_dim)
         self.decoder_clinic = ModalityDecoder(latent_dim, decoder_hidden_dim, clinic_num_tokens * clinic_embedding_dim)
 
         self.reconstruction_loss = ReconstructionLoss({
-            "wsi": wsi_embedding_dim,
+            "wsi": 768,
             "gene": gene_num_tokens * gene_embedding_dim,
             "clinic": clinic_num_tokens * clinic_embedding_dim,
         })
@@ -109,6 +119,7 @@ class SurvTriPoEVAE(nn.Module):
         super().train(mode)
         if self.backbone_frozen:
             frozen_modules = [
+                self.wsi_resampler,
                 self.wsi_encoder,
                 self.gene_encoder,
                 self.clinic_encoder,
@@ -133,6 +144,7 @@ class SurvTriPoEVAE(nn.Module):
 
     def freeze_backbone_for_probe(self):
         modules = [
+            self.wsi_resampler,
             self.wsi_encoder,
             self.gene_encoder,
             self.clinic_encoder,
@@ -207,7 +219,8 @@ class SurvTriPoEVAE(nn.Module):
         batch_size = x_path.shape[0]
         available_mask = self._build_available_mask(batch_size, x_path.device)
 
-        mu_wsi, logvar_wsi, wsi_tokens, wsi_padding_mask = self.wsi_encoder(x_path, padding_mask=wsi_mask)
+        wsi_tokens = self.wsi_resampler(x_path, padding_mask=wsi_mask)
+        mu_wsi, logvar_wsi = self.wsi_encoder(wsi_tokens)
         mu_gene, logvar_gene = self.gene_encoder(x_omic)
         mu_clinic, logvar_clinic = self.clinic_encoder(x_clinic)
 
@@ -226,7 +239,7 @@ class SurvTriPoEVAE(nn.Module):
         recon_gene = self.decoder_gene(z_joint)
         recon_clinic = self.decoder_clinic(z_joint)
 
-        target_wsi = self.wsi_target_head(wsi_tokens, wsi_padding_mask)
+        target_wsi = self.wsi_target_head(wsi_tokens)
         target_gene = x_omic.reshape(batch_size, -1)
         target_clinic = x_clinic.reshape(batch_size, -1)
 
@@ -260,6 +273,7 @@ class SurvTriPoEVAE(nn.Module):
             "logvar_joint": logvar_joint,
             "poe_weights": poe_weights,
             "available_mask": available_mask,
+            "wsi_tokens": wsi_tokens,
             "recon_losses": recon_losses,
             "recon_total": recon_losses["total"],
             "jeffreys": jeffreys,

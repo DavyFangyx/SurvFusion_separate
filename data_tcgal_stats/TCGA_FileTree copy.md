@@ -149,6 +149,9 @@ notes:
   - no WSI_cases directory
   - clinic is stored in clinical/
   - root also has older clinical.cart.2026-03-26.json
+  - RNA 一级子目录名对应 GDC manifest 里的 `file_id`
+  - RNA `.tsv` 文件名对应 GDC manifest 里的 `filename`
+  - 本地没有现成的 RNA file-to-case 表，因此生成 `rna_clean.csv` / gene manifest 时需要额外补 `file_id/filename -> case_id` 映射
 ```
 
 Representative Gene file tree:

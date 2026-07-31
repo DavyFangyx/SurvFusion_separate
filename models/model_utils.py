@@ -251,7 +251,7 @@ class NystromVAETransformerBlock(nn.Module):
         return x
 
 
-class GeneClinicEncoder(nn.Module):
+class TokenSetEncoder(nn.Module):
     def __init__(self, input_dim, latent_dim=128, nhead=8, mlp_dim=1024, num_layers=1, dropout=0.1):
         super().__init__()
         self.mu_query = nn.Parameter(torch.randn(1, 1, input_dim) * 0.02)
@@ -278,125 +278,94 @@ class GeneClinicEncoder(nn.Module):
         return mu, logvar
 
 
-class VIBPPEG(nn.Module):
-    def __init__(self, dim):
+GeneClinicEncoder = TokenSetEncoder
+
+
+class ResamplerCrossAttentionBlock(nn.Module):
+    def __init__(self, dim, nhead=8, mlp_dim=1024, dropout=0.1):
         super().__init__()
-        self.proj7 = nn.Conv2d(dim, dim, 7, 1, 3, groups=dim)
-        self.proj5 = nn.Conv2d(dim, dim, 5, 1, 2, groups=dim)
-        self.proj3 = nn.Conv2d(dim, dim, 3, 1, 1, groups=dim)
+        self.query_norm = nn.LayerNorm(dim)
+        self.context_norm = nn.LayerNorm(dim)
+        self.attn = nn.MultiheadAttention(
+            embed_dim=dim,
+            num_heads=nhead,
+            dropout=dropout,
+            batch_first=True,
+        )
+        self.ffn_norm = nn.LayerNorm(dim)
+        self.ffn = nn.Sequential(
+            nn.Linear(dim, mlp_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(mlp_dim, dim),
+            nn.Dropout(dropout),
+        )
 
-    def forward(self, tokens, height, width, padding_mask=None):
-        batch_size, _, dim = tokens.shape
-        feat = tokens.transpose(1, 2).reshape(batch_size, dim, height, width)
-
-        if padding_mask is not None:
-            valid = (~padding_mask).reshape(batch_size, 1, height, width).float()
-            feat = feat * valid
-        else:
-            valid = None
-
-        feat = feat + self.proj7(feat) + self.proj5(feat) + self.proj3(feat)
-
-        if valid is not None:
-            feat = feat * valid
-
-        return feat.flatten(2).transpose(1, 2)
+    def forward(self, query_tokens, context_tokens, padding_mask=None):
+        attn_out, _ = self.attn(
+            self.query_norm(query_tokens),
+            self.context_norm(context_tokens),
+            self.context_norm(context_tokens),
+            key_padding_mask=padding_mask,
+            need_weights=False,
+        )
+        query_tokens = query_tokens + attn_out
+        query_tokens = query_tokens + self.ffn(self.ffn_norm(query_tokens))
+        return query_tokens
 
 
-class WSIEncoderVIB(nn.Module):
+class WSIMILResampler(nn.Module):
     def __init__(
         self,
         input_dim=1024,
         token_dim=768,
-        latent_dim=128,
+        num_tokens=16,
         nhead=8,
         mlp_dim=1024,
         num_layers=2,
         dropout=0.1,
         max_tokens=4096,
+        use_self_attention=True,
     ):
         super().__init__()
         self.token_dim = token_dim
         self.max_tokens = max_tokens
         self.input_proj = nn.Linear(input_dim, token_dim)
-        self.mu_query = nn.Parameter(torch.randn(1, 1, token_dim) * 0.02)
-        self.logvar_query = nn.Parameter(torch.randn(1, 1, token_dim) * 0.02)
-        self.blocks = nn.ModuleList(
-            [
-                NystromVAETransformerBlock(
-                    token_dim,
-                    nhead=nhead,
-                    mlp_dim=mlp_dim,
-                    num_landmarks=token_dim // 2,
-                    dropout=dropout,
-                )
-                for _ in range(num_layers)
-            ]
+        self.query_tokens = nn.Parameter(torch.randn(1, num_tokens, token_dim) * 0.02)
+        self.cross_blocks = nn.ModuleList(
+            [ResamplerCrossAttentionBlock(token_dim, nhead=nhead, mlp_dim=mlp_dim, dropout=dropout) for _ in range(num_layers)]
         )
-        self.ppeg = VIBPPEG(token_dim)
-        self.norm = nn.LayerNorm(token_dim)
-        self.to_mu = nn.Linear(token_dim, latent_dim)
-        self.to_logvar = nn.Linear(token_dim, latent_dim)
-
-    def _pad_to_square(self, tokens, padding_mask=None):
-        batch_size, num_tokens, dim = tokens.shape
-        grid = int(np.ceil(np.sqrt(num_tokens)))
-        target_len = grid * grid
-        add_len = target_len - num_tokens
-
-        if padding_mask is None:
-            padding_mask = torch.zeros(batch_size, num_tokens, device=tokens.device, dtype=torch.bool)
-        else:
-            padding_mask = padding_mask.bool()
-
-        if add_len > 0:
-            pad_tokens = torch.zeros(batch_size, add_len, dim, device=tokens.device, dtype=tokens.dtype)
-            pad_mask = torch.ones(batch_size, add_len, device=tokens.device, dtype=torch.bool)
-            tokens = torch.cat([tokens, pad_tokens], dim=1)
-            padding_mask = torch.cat([padding_mask, pad_mask], dim=1)
-
-        return tokens, padding_mask, grid, grid
+        self.self_block = VAETransformerBlock(token_dim, nhead=nhead, mlp_dim=mlp_dim, dropout=dropout) if use_self_attention else None
 
     def forward(self, x, padding_mask=None):
         batch_size = x.shape[0]
         if x.shape[1] > self.max_tokens:
             keep_idx = torch.linspace(0, x.shape[1] - 1, self.max_tokens, device=x.device).long()
             x = x.index_select(dim=1, index=keep_idx)
-            padding_mask = None
+            if padding_mask is not None:
+                padding_mask = padding_mask.index_select(dim=1, index=keep_idx)
 
         tokens = self.input_proj(x)
         if padding_mask is not None and padding_mask.shape[1] != tokens.shape[1]:
             padding_mask = None
-        tokens, padding_mask, height, width = self._pad_to_square(tokens, padding_mask)
+        query_tokens = self.query_tokens.expand(batch_size, -1, -1)
 
-        mu_query = self.mu_query.expand(batch_size, -1, -1)
-        logvar_query = self.logvar_query.expand(batch_size, -1, -1)
-        query_mask = torch.zeros(batch_size, 2, device=tokens.device, dtype=torch.bool)
+        for block in self.cross_blocks:
+            query_tokens = block(query_tokens, tokens, padding_mask=padding_mask)
 
-        h = torch.cat([mu_query, logvar_query, tokens], dim=1)
-        full_padding_mask = torch.cat([query_mask, padding_mask], dim=1)
+        if self.self_block is not None:
+            query_tokens = self.self_block(query_tokens, padding_mask=None)
 
-        h = self.blocks[0](h, padding_mask=full_padding_mask)
-        feat_tokens = self.ppeg(h[:, 2:], height, width, padding_mask=padding_mask)
-        h = torch.cat([h[:, :2], feat_tokens], dim=1)
-
-        for block in self.blocks[1:]:
-            h = block(h, padding_mask=full_padding_mask)
-
-        h = self.norm(h)
-        mu = self.to_mu(h[:, 0])
-        logvar = self.to_logvar(h[:, 1]).clamp(min=-4.0, max=2.0)
-        feat_tokens = h[:, 2:]
-        return mu, logvar, feat_tokens, padding_mask
+        return query_tokens
 
 
 class WSITargetPoolingHead(nn.Module):
-    def __init__(self, token_dim=768, output_dim=1024):
+    def __init__(self, token_dim=768, output_dim=768):
         super().__init__()
         self.proj = nn.Linear(token_dim, output_dim)
 
     def forward(self, tokens, padding_mask=None):
-        pooled = masked_mean(tokens, padding_mask)
+        pooled = tokens.mean(dim=1)
         return self.proj(pooled)
 
 

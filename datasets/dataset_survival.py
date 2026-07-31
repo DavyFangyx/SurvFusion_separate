@@ -20,6 +20,11 @@ from utils.general_utils import _series_intersection
 
 
 ALL_MODALITIES = ['rna_clean.csv']  
+RAW_RNA_MODALITIES = {
+    'mlp_gene', 'snn_gene', 'mlp_per_path',
+    'mlp_per_path_wsi', 'abmil_wsi_pathways', 'deepmisl_wsi_pathways',
+    'mcat', 'coattn_motcat', 'porpoise', 'survpath', 'survpgc',
+}
 
 class SurvivalDatasetFactory:
 
@@ -548,35 +553,43 @@ class SurvivalDatasetFactory:
         df_metadata_slide = args.dataset_factory.label_data.loc[mask, :].reset_index(drop=True)
         
         # select the rna, meth, mut, cnv data for this split
+        requires_rna = args.modality in RAW_RNA_MODALITIES
         omics_data_for_split = {}
         for key in args.dataset_factory.all_modalities.keys():
 
             raw_data_df = args.dataset_factory.all_modalities[key]
-            mask = raw_data_df.index.isin(split.tolist())
-
-            filtered_df = raw_data_df[mask]
-            filtered_df = filtered_df[~filtered_df.index.duplicated()] # drop duplicate case_ids
-            filtered_df["temp_index"] = filtered_df.index
-            filtered_df.reset_index(inplace=True, drop=True)
+            if requires_rna:
+                mask = raw_data_df.index.isin(split.tolist())
+                filtered_df = raw_data_df[mask]
+                filtered_df = filtered_df[~filtered_df.index.duplicated()] # drop duplicate case_ids
+                filtered_df["temp_index"] = filtered_df.index
+                filtered_df.reset_index(inplace=True, drop=True)
+            else:
+                filtered_df = pd.DataFrame(columns=list(raw_data_df.columns) + ["temp_index"])
 
             clinical_data_mask = self.clinical_data.case_id.isin(split.tolist())
             clinical_data_for_split = self.clinical_data[clinical_data_mask]
             clinical_data_for_split = clinical_data_for_split.set_index("case_id")
             clinical_data_for_split = clinical_data_for_split.replace(np.nan, "N/A")
 
-            # from metadata drop any cases that are not in filtered_df
-            mask = [True if item in list(filtered_df["temp_index"]) else False for item in df_metadata_slide.case_id]
-            df_metadata_slide = df_metadata_slide[mask]
-            df_metadata_slide.reset_index(inplace=True, drop=True)
+            if requires_rna:
+                # from metadata drop any cases that are not in filtered_df
+                mask = [True if item in list(filtered_df["temp_index"]) else False for item in df_metadata_slide.case_id]
+                df_metadata_slide = df_metadata_slide[mask]
+                df_metadata_slide.reset_index(inplace=True, drop=True)
 
-            mask = [True if item in list(filtered_df["temp_index"]) else False for item in clinical_data_for_split.index]
-            clinical_data_for_split = clinical_data_for_split[mask]
-            clinical_data_for_split = clinical_data_for_split[~clinical_data_for_split.index.duplicated(keep='first')]
+                mask = [True if item in list(filtered_df["temp_index"]) else False for item in clinical_data_for_split.index]
+                clinical_data_for_split = clinical_data_for_split[mask]
+                clinical_data_for_split = clinical_data_for_split[~clinical_data_for_split.index.duplicated(keep='first')]
+            else:
+                clinical_data_for_split = clinical_data_for_split[~clinical_data_for_split.index.duplicated(keep='first')]
             
 
             # normalize your df 
             filtered_normed_df = None
-            if split_key in ["val", "test"]:
+            if not requires_rna:
+                filtered_normed_df = filtered_df
+            elif split_key in ["val", "test"]:
                 
                 # store the case_ids -> create a new df without case_ids
                 case_ids = filtered_df["temp_index"]
@@ -775,10 +788,7 @@ class SurvivalDataset(Dataset):
         
         #@TODO what is the difference between tmil_abmil and transmil_wsi
         elif self.modality in ["mlp_per_path_wsi", "abmil_wsi", "abmil_wsi_pathways", "deepmisl_wsi", "deepmisl_wsi_pathways", "mlp_wsi", "transmil_wsi", "transmil_wsi_pathways", "transmil_wsi"]:
-            df_small = self.omics_data_dict["rna"][self.omics_data_dict["rna"]["temp_index"] == case_id]
-            df_small = df_small.drop(columns="temp_index")
-            df_small = df_small.reindex(sorted(df_small.columns), axis=1)
-            omics_tensor = torch.squeeze(torch.Tensor(df_small.values))
+            omics_tensor = torch.zeros((1,), dtype=torch.float32)
             patch_features, mask = self._load_wsi_embs_from_path(self.data_dir, slide_ids)
             #@HACK: returning case_id, remove later
             return (patch_features, omics_tensor, label, event_time, c, clinical_data, mask)
@@ -928,6 +938,7 @@ class SurvivalDataset(Dataset):
 
             n_samples = min(patch_features.shape[0], max_patches)
             idx = np.sort(np.random.choice(patch_features.shape[0], n_samples, replace=False))
+            idx = torch.as_tensor(idx, dtype=torch.long)
             patch_features = patch_features[idx, :]
         
             # make a mask 

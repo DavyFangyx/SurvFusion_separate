@@ -48,40 +48,40 @@
 
 Gene 和 Clinic 共用这一套结构定义，各自单独实例化一份权重（不共享参数），因为 nfeats 不同。
 
-### 2.2 WSI — VIBTrans（NystromAttention 版本）
+### 2.2 WSI — MIL Resampler + 复用 Encoder_TRANSFORMER
+
+WSI 编码器改为两段级联结构。第一段使用 WSI 专属的 MIL Resampler 将变长 patch 序列压缩为定长 token set；第二段直接复用 2.1 节 Gene / Clinic 的 Encoder_TRANSFORMER 定义，对该定长 token set 输出 `(mu_wsi, logvar_wsi)`。
+
+#### 第一段：MIL Resampler（WSI 专属，不与 Gene / Clinic 共享权重）
 
 ```
-输入 features: (B, n_patch, 768)
+输入: patches (B, n_patch, 768), padding_mask
 
-1. Padding mask:
-   - 将 n_patch pad 到接近正方形 H*W
-   - 生成 padding_mask: (B, H*W)，标记哪些位置是真实 patch、哪些是 padding
+1. K 个可学习 query token: (K, 768)
+   - K 硬编码为超参，建议默认 K = 16
 
-2. 拼接 muQuery, sigmaQuery token:
-   x: (B, H*W+2, 768)
+2. query 对 patches 做 cross-attention（Perceiver-resampler 式）
+   - attention 计算时必须传入 padding_mask，屏蔽 padding patch
+   - 可堆叠 1~2 层 cross-attention block
 
-3. TransLayer 1 (NystromAttention)
-   - 必须将 padding_mask 传入 attention，屏蔽 padding token 的注意力权重
+3. （可选，建议保留）K 个输出 token 之间再加 1 层轻量 self-attention
+   - 因为 K 远小于 n_patch，这层计算量可忽略
+   - 用于补回 resampler 阶段丢掉的 token-token 交互
 
-4. PPEG (卷积式位置编码)
-   - 只对 feature token 做，reshape 前需将 padding 位置置 0
-   - 卷积后仍按 padding_mask 保持 padding 位置无效（不参与后续统计）
+输出: wsi_tokens (B, K, 768)   # 定长，不再需要 padding_mask
+```
 
-5. TransLayer 2 (NystromAttention，同样传入 padding_mask)
+#### 第二段：直接复用 2.1 节 Gene / Clinic Encoder_TRANSFORMER，nfeats = K
 
-6. LayerNorm
+```
+输入: wsi_tokens (B, K, 768)
 
-7. 拆分:
-   mu_token, logvar_token: (B, 768)
-   feat_tokens: (B, H*W, 768)   # 含 padding，需配合 padding_mask 使用
+1. muQuery, sigmaQuery 拼接 -> (K+2, B, 768)
+2. TransformerEncoderLayer（与 Gene/Clinic 同一套结构定义，权重不共享，单独实例化）
+3. 取 mu_token, logvar_token -> Linear(768, 128) -> mu_wsi, logvar_wsi
+4. logvar_wsi.clamp(min=-4, max=2)
 
-8. mu_wsi    = Linear(768, 128)(mu_token)
-   logvar_wsi = Linear(768, 128)(logvar_token)
-   logvar_wsi.clamp(min=-4, max=2)
-
-输出:
-mu_wsi, logvar_wsi: (B, 128)
-h_wsi_tokens: (B, H*W, 768)  + padding_mask   # 供 2.3 节重建目标使用
+输出: mu_wsi, logvar_wsi (B, 128)
 ```
 
 ### 2.3 WSI 重建目标（防止表征塌缩，独立池化头）
@@ -89,18 +89,18 @@ h_wsi_tokens: (B, H*W, 768)  + padding_mask   # 供 2.3 节重建目标使用
 **不使用 mu_wsi 作为重建目标。** 单独设计一个与 mu 分支不共享参数的池化头：
 
 ```
-输入: h_wsi_tokens (B, H*W, 768), padding_mask
+输入: wsi_tokens (B, K, 768)   # 来自 2.2 节第一段 MIL Resampler 的输出
 
-1. mask 均值池化（只对真实 patch 做平均，忽略 padding）:
-   pooled = masked_mean(h_wsi_tokens, padding_mask)   # (B, 768)
+1. 均值池化（K 个 token 已定长且无 padding，直接 mean，不需要 mask）:
+   pooled = mean(wsi_tokens, dim=1)   # (B, 768)
 
 2. 独立线性层（参数与 mu/logvar 分支完全分离）:
-   wsi_target = Linear(768, 768)(pooled)   # 或直接用 pooled 本身作为 target，不加线性层
+   wsi_target = Linear(768, 768)(pooled)
 
 输出: wsi_target (B, 768)   # 作为 Decoder 重建的 ground truth
 ```
 
-该目标向量与 mu_wsi 来自同一 backbone 输出但走独立的投影头，二者参数不共享，避免 decoder 直接照抄 mu_wsi 导致的平凡解。
+该目标向量与 `mu_wsi / logvar_wsi` 来自同一条 WSI backbone，但走独立投影头，参数不共享，避免 decoder 直接照抄 posterior 分支导致平凡解。
 
 ---
 
@@ -198,9 +198,9 @@ L = L_rec + β(t) * J
 ## 8. 训练流程与代码组织
 
 ### 8.1 共享组件（model_utils.py）
-- `GeneClinicEncoder`（2.1）
-- `WSIEncoderVIBTrans`（含 TransLayer / PPEG，2.2）
-- `WSITargetPoolingHead`（2.3）
+- `TokenSetEncoder`（原 GeneClinicEncoder 改名；Gene / Clinic / WSI 共用同一类定义，各自单独实例化权重，2.1 / 2.2）
+- `WSIMILResampler`（2.2 第一段）
+- `WSITargetPoolingHead`（2.3，内部实现为直接 mean，不再使用 mask）
 - `GeneralizedPoE`（3）
 - `reparameterize`（4）
 - `Decoder_Share`（5，三个模态各一份权重）
@@ -241,6 +241,121 @@ Model_A 的线性探针 head 除外——那是一个单独的、极简的线性
 
 ## 10. 遗留待确认项
 
-- β_target、N_warmup、各 decoder hidden 维度、TransformerEncoderLayer 的 nhead/层数等具体超参数值，尚未固定，写执行 prompt 前需给出默认值。
+- β_target、N_warmup、各 decoder hidden 维度、TransformerEncoderLayer 的 nhead/层数、MIL Resampler 的 K 值与层数等具体超参数值，尚未固定，写执行 prompt 前需给出默认值。
 - Model_A 线性探针具体用线性 Cox 还是线性 bin-hazard，需要确认（建议线性 Cox，实现最简单，作为纯诊断够用）。
 - 生存 head 的参考实现文件（xxxx.py）尚未提供，Model_B/C 的执行 prompt 需等该文件确定后再写。
+
+---
+
+## 11. 当前可直接运行的测试命令
+
+以下命令针对当前仓库的真实目录结构编写，默认：
+
+- 项目根目录：
+  `/data/fangyuxuan/projects/medical_dl/SurvPGC_github_init`
+- Python 环境：
+  `/data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python`
+- Workspace 结构：
+  `SurvPGC_Workspace/<study>/P/...`
+  `SurvPGC_Workspace/<study>/C/...`
+  `SurvPGC_Workspace/<study>/G/...`
+- split 结构：
+  `splits/5foldcv/<study>/splits_*.csv`
+
+**重要：不要使用 `trident/bin/python` 运行这些命令。**
+`trident` 环境缺少当前训练入口依赖的 `sksurv`，会在 `utils/core_utils.py` 导入阶段直接报错。
+
+如需指定显卡，可在命令前加：
+
+```bash
+CUDA_VISIBLE_DEVICES=0
+```
+
+下面示例使用 `tcga_kirc`、`P/uni_v1`、`C/L4`、`G/scFoundation_embedding_cell_norm`，并只跑 `fold 0` 进行单折测试。
+
+### 11.1 Model_A：VAE 预训练 + 冻结 backbone + 线性 Cox probe
+
+```bash
+cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
+
+CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+  --study tcga_kirc \
+  --modality survtri_poe_vae \
+  --poe_variant A \
+  --bag_loss cox_surv \
+  --label_dim 1 \
+  --encoding_dim 1024 \
+  --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/P/uni_v1 \
+  --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/G/scFoundation_embedding_cell_norm \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/C/L4 \
+  --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_kirc \
+  --k 5 --k_start 0 --k_end 1 \
+  --max_epochs_stage1 5 \
+  --max_epochs 12 \
+  --warmup_epochs 3 \
+  --batch_size_stage1 1 \
+  --exp_group poe_vae_test \
+  --run_name model_A
+```
+
+### 11.2 Model_B：VAE 预训练 + `fuse_fc + classifier + Cox`
+
+```bash
+cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
+
+CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+  --study tcga_kirc \
+  --modality survtri_poe_vae \
+  --poe_variant B \
+  --bag_loss cox_surv \
+  --label_dim 1 \
+  --encoding_dim 1024 \
+  --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/P/uni_v1 \
+  --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/G/scFoundation_embedding_cell_norm \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/C/L4 \
+  --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_kirc \
+  --k 5 --k_start 0 --k_end 1 \
+  --max_epochs_stage1 5 \
+  --max_epochs 12 \
+  --warmup_epochs 3 \
+  --batch_size_stage1 1 \
+  --exp_group poe_vae_test \
+  --run_name model_B
+```
+
+### 11.3 Model_C：联合训练 `L_rec + βJ + λL_surv`
+
+```bash
+cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
+
+CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+  --study tcga_kirc \
+  --modality survtri_poe_vae \
+  --poe_variant C \
+  --bag_loss cox_surv \
+  --label_dim 1 \
+  --encoding_dim 1024 \
+  --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/P/uni_v1 \
+  --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/G/scFoundation_embedding_cell_norm \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/C/L4 \
+  --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_kirc \
+  --k 5 --k_start 0 --k_end 1 \
+  --max_epochs 12 \
+  --warmup_epochs 3 \
+  --poe_surv_lambda 1.0 \
+  --exp_group poe_vae_test \
+  --run_name model_C
+```
+
+### 11.4 说明
+
+- 若已 `conda activate SurvPGC`，也可以将上面命令中的 Python 路径替换为：
+  `python`
+- 当前代码里 best checkpoint 从 `epoch >= 10` 才开始保存，因此 `--max_epochs` 不应低于 `11`。
+- 若要切换数据集，只需同步替换：
+  `--study`
+  `--data_root_dir`
+  `--gene_dir`
+  `--clinic_dir`
+  `--split_dir`
+
