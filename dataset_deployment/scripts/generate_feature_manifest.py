@@ -1,0 +1,38 @@
+import argparse
+import sys
+from pathlib import Path
+
+PROJ_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJ_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJ_ROOT))
+
+from dataset_deployment.scripts.pipeline import generate_feature_manifest_for_study, resolve_studies
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Generate gene feature manifest CSVs for SurvPGC datasets.")
+    parser.add_argument("--study", type=str, default=None)
+    parser.add_argument("--all", action="store_true", dest="run_all")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--validate-only", action="store_true")
+    parser.add_argument("--allow-gdc-api", action="store_true")
+    parser.add_argument("--gene-embedding", default="scFoundation_embedding_gene_raw")
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    for study in resolve_studies(args.study, args.run_all):
+        print(
+            generate_feature_manifest_for_study(
+                study,
+                dry_run=args.dry_run,
+                validate_only=args.validate_only,
+                allow_gdc_api=args.allow_gdc_api,
+                gene_embedding=args.gene_embedding,
+            )
+        )
+
+
+if __name__ == "__main__":
+    main()

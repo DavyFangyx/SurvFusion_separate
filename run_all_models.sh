@@ -31,7 +31,7 @@ for arg in "$@"; do
 done
 
 # ---- 数据集配置 ----
-STUDY="tcga_kirc"
+STUDY="tcga_coad"
 WHICH_SPLITS="5foldcv"
 
 # ============================================================
@@ -47,7 +47,7 @@ EXP_GROUP="ablation_Model_structure"
 RUN_NAME="CLIP_LAMBDA005"
 
 # ---- 数据集配置 ----
-STUDY="tcga_kirc"
+STUDY="tcga_coad"
 WHICH_SPLITS="5foldcv"
 # joint 联合训练对齐损失权重 λ
 CLIP_LAMBDA=0.01
@@ -82,8 +82,8 @@ BATCH_SIZE_STAGE2=32    # survfusion_separate Stage2 及普通模型的 train ba
 # A_profile  B_noNM     B_noTM   B_staging    D_noProg
 # B_noM      B_noStage  B_noTN   C_treatment  O_origin
 # B_noN      B_noT      B_noTNM  D_clinical_summary
-# O_simple
-CLINIC_EXPERIMENT="O_simple"
+# L4
+CLINIC_EXPERIMENT="L4"
 # gene 特征目录（实验二改这里）:
 # scFoundation_embedding_cell_norm
 # scFoundation_embedding_cell_raw
@@ -151,9 +151,9 @@ STUDY_SUBTYPE="${STUDY#tcga_}"
 
 LABEL_FILE="$SCRIPT_DIR/datasets_csv/metadata/${STUDY}.csv"
 OMICS_DIR="$SCRIPT_DIR/datasets_csv/raw_rna_data/${TYPE_OF_PATH}/${STUDY_SUBTYPE}"
-DATA_ROOT_DIR="$SCRIPT_DIR/SurvPGC_Workspace/P/${WSI_EXPERIMENT}"
-CLINIC_DIR="$SCRIPT_DIR/SurvPGC_Workspace/C/${CLINIC_EXPERIMENT}"
-GENE_DIR="$SCRIPT_DIR/SurvPGC_Workspace/G/${GENE_EXPERIMENT}"
+DATA_ROOT_DIR="$SCRIPT_DIR/SurvPGC_Workspace/${STUDY}/P/${WSI_EXPERIMENT}"
+CLINIC_DIR="$SCRIPT_DIR/SurvPGC_Workspace/${STUDY}/C/${CLINIC_EXPERIMENT}"
+GENE_DIR="$SCRIPT_DIR/SurvPGC_Workspace/${STUDY}/G/${GENE_EXPERIMENT}"
 SPLIT_DIR="$SCRIPT_DIR/splits/${WHICH_SPLITS}/${STUDY}"
 
 if [ -z "$RUN_NAME" ]; then

@@ -38,6 +38,7 @@ class DatasetConfig:
     wsi_root: Path
     clinic_files: tuple[Path, ...]
     case_dirs: tuple[Path, ...] = ()
+    project_filter: tuple[str, ...] = ()
     rna_manifest: Path | None = None
     skip_reason: str | None = None
 
@@ -127,7 +128,36 @@ DATASETS = [
             BASE_ROOT / "TCGA-STAD" / "Bulk_RNA_cases",
             BASE_ROOT / "TCGA-STAD" / "WSI_cases",
         ),
-        skip_reason="Bulk_RNA contains WSI-like .svs files, not RNA count .tsv files.",
+    ),
+    DatasetConfig(
+        name="TCGA-KIRC",
+        root=BASE_ROOT / "kindey_cancer_TCGA",
+        gene_root=BASE_ROOT / "kindey_cancer_TCGA" / "Bulk_RNA",
+        wsi_root=BASE_ROOT / "kindey_cancer_TCGA" / "WSI",
+        clinic_files=(BASE_ROOT / "kindey_cancer_TCGA" / "clinical" / "clinical.cart.2026-03-17.json",),
+        case_dirs=(BASE_ROOT / "kindey_cancer_TCGA" / "clinical",),
+        project_filter=("TCGA-KIRC",),
+        rna_manifest=BASE_ROOT / "kindey_cancer_TCGA" / "gdc_manifest.2026-03-18.111422_Bulk.txt",
+    ),
+    DatasetConfig(
+        name="TCGA-KIRP",
+        root=BASE_ROOT / "kindey_cancer_TCGA",
+        gene_root=BASE_ROOT / "kindey_cancer_TCGA" / "Bulk_RNA",
+        wsi_root=BASE_ROOT / "kindey_cancer_TCGA" / "WSI",
+        clinic_files=(BASE_ROOT / "kindey_cancer_TCGA" / "clinical" / "clinical.cart.2026-03-17.json",),
+        case_dirs=(BASE_ROOT / "kindey_cancer_TCGA" / "clinical",),
+        project_filter=("TCGA-KIRP",),
+        rna_manifest=BASE_ROOT / "kindey_cancer_TCGA" / "gdc_manifest.2026-03-18.111422_Bulk.txt",
+    ),
+    DatasetConfig(
+        name="TCGA-KICH",
+        root=BASE_ROOT / "kindey_cancer_TCGA",
+        gene_root=BASE_ROOT / "kindey_cancer_TCGA" / "Bulk_RNA",
+        wsi_root=BASE_ROOT / "kindey_cancer_TCGA" / "WSI",
+        clinic_files=(BASE_ROOT / "kindey_cancer_TCGA" / "clinical" / "clinical.cart.2026-03-17.json",),
+        case_dirs=(BASE_ROOT / "kindey_cancer_TCGA" / "clinical",),
+        project_filter=("TCGA-KICH",),
+        rna_manifest=BASE_ROOT / "kindey_cancer_TCGA" / "gdc_manifest.2026-03-18.111422_Bulk.txt",
     ),
 ]
 
@@ -149,8 +179,12 @@ def add_case_uuid(case_uuids: dict[str, set[str]], patient_id: str | None, case_
         case_uuids.setdefault(patient_id, set()).add(case_uuid)
 
 
-def load_clinic_patients(paths: Iterable[Path], case_uuids: dict[str, set[str]]) -> set[str]:
+def load_clinic_index(
+    paths: Iterable[Path],
+    case_uuids: dict[str, set[str]],
+) -> tuple[set[str], dict[str, str]]:
     patients: set[str] = set()
+    patient_projects: dict[str, str] = {}
     for path in paths:
         if not path.exists():
             continue
@@ -161,10 +195,13 @@ def load_clinic_patients(paths: Iterable[Path], case_uuids: dict[str, set[str]])
             if not isinstance(item, dict):
                 continue
             patient_id = normalize_patient_id(item.get("submitter_id"))
+            project_id = ((item.get("project") or {}).get("project_id")) or ""
             if patient_id:
                 patients.add(patient_id)
+                if project_id:
+                    patient_projects[patient_id] = project_id
                 add_case_uuid(case_uuids, patient_id, item.get("case_id"))
-    return patients
+    return patients, patient_projects
 
 
 def load_sample_sheet_maps(case_dirs: Iterable[Path]) -> dict[str, tuple[str, str | None]]:
@@ -341,18 +378,29 @@ def process_dataset(config: DatasetConfig, allow_gdc_api: bool) -> list[dict[str
 
     out_dir = OUTPUT_ROOT / config.name
     out_dir.mkdir(parents=True, exist_ok=True)
+    stale_readme = out_dir / "README.md"
+    if stale_readme.exists():
+        stale_readme.unlink()
+    stale_diagnostics = out_dir / f"{config.name}_unmapped_gene_files.txt"
+    if stale_diagnostics.exists():
+        stale_diagnostics.unlink()
     case_uuids: dict[str, set[str]] = {}
 
     p_patients = load_wsi_patients(config, case_uuids)
-    c_patients = load_clinic_patients(config.clinic_files, case_uuids)
+    c_patients, patient_projects = load_clinic_index(config.clinic_files, case_uuids)
     g_patients, unmapped_gene_files = load_gene_patients(config, case_uuids, allow_gdc_api)
     if unmapped_gene_files:
-        diagnostics = out_dir / f"{config.name}_unmapped_gene_files.txt"
-        diagnostics.write_text("\n".join(unmapped_gene_files) + "\n", encoding="utf-8")
+        stale_diagnostics.write_text("\n".join(unmapped_gene_files) + "\n", encoding="utf-8")
         raise RuntimeError(
             f"{config.name} has {len(unmapped_gene_files)} unmapped Gene files. "
-            f"See {diagnostics}."
+            f"See {stale_diagnostics}."
         )
+
+    if config.project_filter:
+        allowed_projects = set(config.project_filter)
+        p_patients = {pid for pid in p_patients if patient_projects.get(pid) in allowed_projects}
+        c_patients = {pid for pid in c_patients if patient_projects.get(pid) in allowed_projects}
+        g_patients = {pid for pid in g_patients if patient_projects.get(pid) in allowed_projects}
 
     all_patients = sorted(p_patients | c_patients | g_patients)
     patient_rows: list[dict[str, object]] = []
@@ -411,7 +459,14 @@ def main() -> int:
     parser.add_argument(
         "--allow-gdc-api",
         action="store_true",
+        default=True,
         help="Allow GDC API lookup when local file-to-case metadata is missing.",
+    )
+    parser.add_argument(
+        "--no-gdc-api",
+        dest="allow_gdc_api",
+        action="store_false",
+        help="Disable GDC API lookup.",
     )
     args = parser.parse_args()
 

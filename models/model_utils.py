@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from nystrom_attention import NystromAttention
 
 class BilinearFusion(nn.Module):
     r"""
@@ -219,6 +220,37 @@ class VAETransformerBlock(nn.Module):
         return x
 
 
+class NystromVAETransformerBlock(nn.Module):
+    def __init__(self, dim, nhead=8, mlp_dim=1024, num_landmarks=None, dropout=0.1):
+        super().__init__()
+        self.attn_norm = nn.LayerNorm(dim)
+        self.attn = NystromAttention(
+            dim=dim,
+            dim_head=dim // nhead,
+            heads=nhead,
+            num_landmarks=num_landmarks or dim // 2,
+            pinv_iterations=6,
+            residual=True,
+            dropout=dropout,
+        )
+        self.ffn_norm = nn.LayerNorm(dim)
+        self.ffn = nn.Sequential(
+            nn.Linear(dim, mlp_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(mlp_dim, dim),
+            nn.Dropout(dropout),
+        )
+
+    def forward(self, x, padding_mask=None):
+        valid_mask = None if padding_mask is None else ~padding_mask
+        x = x + self.attn(self.attn_norm(x), mask=valid_mask)
+        x = x + self.ffn(self.ffn_norm(x))
+        if padding_mask is not None:
+            x = x.masked_fill(padding_mask.unsqueeze(-1), 0.0)
+        return x
+
+
 class GeneClinicEncoder(nn.Module):
     def __init__(self, input_dim, latent_dim=128, nhead=8, mlp_dim=1024, num_layers=1, dropout=0.1):
         super().__init__()
@@ -288,7 +320,16 @@ class WSIEncoderVIB(nn.Module):
         self.mu_query = nn.Parameter(torch.randn(1, 1, token_dim) * 0.02)
         self.logvar_query = nn.Parameter(torch.randn(1, 1, token_dim) * 0.02)
         self.blocks = nn.ModuleList(
-            [VAETransformerBlock(token_dim, nhead=nhead, mlp_dim=mlp_dim, dropout=dropout) for _ in range(num_layers)]
+            [
+                NystromVAETransformerBlock(
+                    token_dim,
+                    nhead=nhead,
+                    mlp_dim=mlp_dim,
+                    num_landmarks=token_dim // 2,
+                    dropout=dropout,
+                )
+                for _ in range(num_layers)
+            ]
         )
         self.ppeg = VIBPPEG(token_dim)
         self.norm = nn.LayerNorm(token_dim)

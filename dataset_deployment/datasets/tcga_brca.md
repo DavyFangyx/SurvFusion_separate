@@ -1,0 +1,23 @@
+# tcga_brca
+
+- display_name: `TCGA-BRCA`
+- raw_root: `/data/lizhe/Medteam_projects/TCGA-BRCA`
+- stats_dir: `data_tcgal_stats/TCGA-BRCA`
+- workspace_root: `SurvPGC_Workspace/tcga_brca`
+- clinic_jsons:
+  - `Bulk_RNA_case/clinical.cart.2026-06-29.json`
+  - `WSI_case/clinical.cart.2026-06-29.json`
+  - `Mutation_case/clinical.cart.2026-06-29.json`
+  - `Mythylation_case/clinical.cart.2026-06-29.json`
+  - `RPPA_case/clinical.cart.2026-06-29.json`
+- gene_root: `Bulk_RNA/`
+- wsi_root: `WSI/`
+- case metadata dirs:
+  - `Bulk_RNA_case/`
+  - `WSI_case/`
+  - `Mutation_case/`
+  - `Mythylation_case/`
+  - `RPPA_case/`
+- notes:
+  - BRCA 使用 `*_case` 而不是 `*_cases`
+  - 原始目录还包含 Mutation / Mythylation / RPPA

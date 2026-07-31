@@ -1,6 +1,6 @@
 #!/bin/bash
 # configs/z_exp_gen/gen_Multi_model_test.sh
-# 生成 Multi_model_test 的 config：5 个模型 × 3 个 study × 3 个头数 = 45 个 config
+# 生成 Multi_model_test 的 config：按注册表启用的数据集批量展开
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -9,11 +9,7 @@ mkdir -p "$OUT_DIR"
 
 EXP_GROUP="Multi_model_test"
 
-STUDIES=(
-    tcga_kich
-    tcga_kirc
-    tcga_kirp
-)
+mapfile -t STUDIES < <(PYTHONPATH="$SCRIPT_DIR" python -c 'from dataset_deployment.registry import list_enabled_studies; print("\n".join(list_enabled_studies()))')
 
 HEADS=(
     4

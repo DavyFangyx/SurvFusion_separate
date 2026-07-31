@@ -1,11 +1,18 @@
 import argparse
 
+from dataset_deployment.registry import (
+    DEFAULT_CLINIC_EXPERIMENT,
+    DEFAULT_GENE_EXPERIMENT,
+    DEFAULT_STUDY,
+    DEFAULT_WSI_EXPERIMENT,
+    infer_standard_paths,
+    list_enabled_studies,
+)
 
-DEFAULT_STUDY = 'tcga_kirc'
 DEFAULT_RESULTS_DIR = './results'
-DEFAULT_WSI_DIR = './SurvPGC_Workspace/P/uni_v1'
-DEFAULT_CLINIC_DIR = './SurvPGC_Workspace/C/O_simple'
-DEFAULT_GENE_DIR = './SurvPGC_Workspace/G/scFoundation_embedding_cell_norm'
+DEFAULT_WSI_DIR = None
+DEFAULT_CLINIC_DIR = None
+DEFAULT_GENE_DIR = None
 
 def _process_args():
     r"""
@@ -22,7 +29,7 @@ def _process_args():
     parser = argparse.ArgumentParser(description='Configurations for SurvPath Survival Prediction Training')
 
     #---> study related
-    parser.add_argument('--study', type=str, default=DEFAULT_STUDY, help='study name')
+    parser.add_argument('--study', type=str, default=DEFAULT_STUDY, choices=list_enabled_studies(), help='study name')
     parser.add_argument('--task', type=str, default='survival', choices=['survival'])
     parser.add_argument('--n_classes', type=int, default=4, help='number of classes (4 bins for survival)')
     parser.add_argument('--results_dir', default=DEFAULT_RESULTS_DIR, help='base results directory (default: ./results)')
@@ -39,6 +46,7 @@ def _process_args():
     parser.add_argument('--omics_dir', type=str, default=None, help='Path to dir with omics csv for all modalities')
     parser.add_argument('--clinic_dir', type=str, default=DEFAULT_CLINIC_DIR, help='Path to dir with clinical embedding')
     parser.add_argument('--gene_dir', type=str, default=DEFAULT_GENE_DIR, help='Path to dir with gene foundation model embedding')
+    parser.add_argument('--clinical_file', type=str, default=None, help='Path to study clinical CSV')
 
     parser.add_argument('--num_patches', type=int, default=4096, help='number of patches')
     parser.add_argument('--label_col', type=str, default="survival_months", help='type of survival (OS, DSS, PFI, PFS)')
@@ -158,15 +166,30 @@ def _process_args():
 
     args = parser.parse_args()
 
+    inferred_paths = infer_standard_paths(
+        args.study,
+        '.',
+        which_splits=args.which_splits,
+        type_of_path=args.type_of_path,
+        wsi_experiment=DEFAULT_WSI_EXPERIMENT,
+        clinic_experiment=DEFAULT_CLINIC_EXPERIMENT,
+        gene_experiment=DEFAULT_GENE_EXPERIMENT,
+    )
+
     if args.label_file is None:
-        args.label_file = './datasets_csv/metadata/{}.csv'.format(args.study)
-
+        args.label_file = str(inferred_paths['label_file'])
     if args.omics_dir is None:
-        subtype = args.study.replace('tcga_', '')
-        args.omics_dir = './datasets_csv/raw_rna_data/combine/{}'.format(subtype)
-
+        args.omics_dir = str(inferred_paths['omics_dir'])
     if args.split_dir is None:
-        args.split_dir = './splits/{}/{}'.format(args.which_splits, args.study)
+        args.split_dir = str(inferred_paths['split_dir'])
+    if args.data_root_dir is None:
+        args.data_root_dir = str(inferred_paths['data_root_dir'])
+    if args.clinic_dir is None:
+        args.clinic_dir = str(inferred_paths['clinic_dir'])
+    if args.gene_dir is None:
+        args.gene_dir = str(inferred_paths['gene_dir'])
+    if args.clinical_file is None:
+        args.clinical_file = str(inferred_paths['clinical_file'])
 
     if not (args.task == "survival"):
         print("Task and folder does not match")
@@ -180,11 +203,11 @@ cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 conda activate SurvPGC
 
 python main.py \
-  --study tcga_kirc \
+  --study tcga_coad \
   --modality survtri_mlp_mhsa \
   --selected_modalities wsi,gene \
   --type_of_path combine \
-  --data_root_dir SurvPGC_Workspace/P/uni_v2 \
+  --data_root_dir SurvPGC_Workspace/tcga_coad/P/uni_v2 \
   --num_heads 8 \
   --k 1
 

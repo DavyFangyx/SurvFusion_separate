@@ -1,17 +1,13 @@
 #!/bin/bash
 # exp_gen/gen_Gengtest_CSVRAW.sh
-# 生成 Gengtest_CSVRAW 的 config：3 个 study × 2 个模型 = 6 个 config
+# 生成 Gengtest_CSVRAW 的 config：按注册表启用的数据集批量展开
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT_DIR="$SCRIPT_DIR/configs/queue"
 mkdir -p "$OUT_DIR"
 
-STUDIES=(
-    tcga_kich
-    tcga_kirc
-    tcga_kirp
-)
+mapfile -t STUDIES < <(PYTHONPATH="$SCRIPT_DIR" python -c 'from dataset_deployment.registry import list_enabled_studies; print("\n".join(list_enabled_studies()))')
 
 MODELS=(
     mlp_gene

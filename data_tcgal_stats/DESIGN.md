@@ -4,9 +4,8 @@
 
 ## 数据集
 
-- 统计：`TCGA_LIHC`、`TCGA-BRCA`、`TCGA-COAD`、`TCGA-PRAD`、`TCGA-READ`
-- 暂跳过：`TCGA-STAD`
-- 跳过原因：`TCGA-STAD/Bulk_RNA` 当前检查为 `.svs`，不像 RNA 表达矩阵，因此暂不作为 Gene 统计。
+- 统计：`TCGA_LIHC`、`TCGA-BRCA`、`TCGA-COAD`、`TCGA-PRAD`、`TCGA-READ`、`TCGA-STAD`
+- 统计：`kindey_cancer_TCGA` 按 `project_id` 拆成 `TCGA-KIRC`、`TCGA-KIRP`、`TCGA-KICH`
 
 ## 模态定义
 
@@ -19,7 +18,9 @@
 - 主键：病人级 `submitter_id`，例如 `TCGA-AA-3561`。
 - WSI：优先从 metadata/sample sheet 映射；没有时从 `.svs` 文件名提取前三段 TCGA ID。
 - Gene：优先从 `gdc_sample_sheet.*.tsv` 的 `Case ID` 映射；其次从 `metadata.cart.*.json` 的 associated entities 映射。
-- `TCGA_LIHC` 的 RNA 本地没有 sample sheet；脚本可用 `--allow-gdc-api` 根据 manifest 的 file id 向 GDC API 补 file-to-case 映射。
+- `TCGA_LIHC` 的 RNA 本地没有 sample sheet；脚本默认会根据 manifest 的 file id 向 GDC API 补 file-to-case 映射。
+- `kindey_cancer_TCGA` 按 `project_id` 拆成 `TCGA-KIRC`、`TCGA-KIRP`、`TCGA-KICH` 三个子目录。
+- `TCGA-STAD` 的本地 `Bulk_RNA/` 没有 RNA `.tsv`，统计时将 Gene 视为空集，而不会把镜像的 `.svs` 误当作 Gene。
 - 不允许把 file UUID 或下载目录 UUID 当作病人 ID。
 
 ## 分类
@@ -39,4 +40,3 @@
 - `data_tcgal_stats/汇总.csv`：所有已统计数据集的 7 类汇总长表。
 - `data_tcgal_stats/<dataset>/<dataset>_patients.csv`：病人级 P/C/G 明细。
 - `data_tcgal_stats/<dataset>/<dataset>_<class>.csv`：每个分类一个患者表，包含 `submitter_id` 和可获得的 `case_uuid`。
-- `data_tcgal_stats/TCGA-STAD/README.md`：跳过说明。

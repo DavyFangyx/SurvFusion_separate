@@ -34,7 +34,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-DATASETS = ["tcga_kich", "tcga_kirc", "tcga_kirp"]
+from dataset_deployment.registry import get_dataset_config, list_enabled_studies
+
+DATASETS = list_enabled_studies()
 TRI_MODELS = [
     "survtri_snn_concat",
     "survtri_mlp_concat",
@@ -44,9 +46,8 @@ TARGET_MODALITIES = ["C", "G", "P"]
 MODALITY_ORDER = ["C", "G", "P"]
 
 DATASET_LABELS = {
-    "tcga_kich": "KICH",
-    "tcga_kirc": "KIRC",
-    "tcga_kirp": "KIRP",
+    study: get_dataset_config(study).display_name.replace("TCGA-", "").replace("TCGA_", "")
+    for study in DATASETS
 }
 
 TRI_MODEL_LABELS = {

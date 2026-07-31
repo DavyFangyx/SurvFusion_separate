@@ -121,6 +121,7 @@ write_effective_config() {
         CLINIC_DIR_PATH
         GENE_DIR_PATH
         SPLIT_DIR_PATH
+        CLINICAL_FILE
         NUM_PATCHES
         LABEL_COL
         WSI_PROJECTION_DIM
@@ -202,9 +203,10 @@ require_command "$PYTHON_BIN"
 STUDY_SUBTYPE="${STUDY#tcga_}"
 LABEL_FILE="$(resolve_path_or_default "${LABEL_FILE_PATH}" "$SCRIPT_DIR/datasets_csv/metadata/${STUDY}.csv")"
 OMICS_DIR="$(resolve_path_or_default "${OMICS_DIR_PATH}" "$SCRIPT_DIR/datasets_csv/raw_rna_data/${TYPE_OF_PATH}/${STUDY_SUBTYPE}")"
-DATA_ROOT_DIR="$(resolve_path_or_default "${DATA_ROOT_DIR_PATH}" "$SCRIPT_DIR/SurvPGC_Workspace/P/${WSI_EXPERIMENT}")"
-CLINIC_DIR="$(resolve_path_or_default "${CLINIC_DIR_PATH}" "$SCRIPT_DIR/SurvPGC_Workspace/C/${CLINIC_EXPERIMENT}")"
-GENE_DIR="$(resolve_path_or_default "${GENE_DIR_PATH}" "$SCRIPT_DIR/SurvPGC_Workspace/G/${GENE_EXPERIMENT}")"
+DATA_ROOT_DIR="$(resolve_path_or_default "${DATA_ROOT_DIR_PATH}" "$SCRIPT_DIR/SurvPGC_Workspace/${STUDY}/P/${WSI_EXPERIMENT}")"
+CLINIC_DIR="$(resolve_path_or_default "${CLINIC_DIR_PATH}" "$SCRIPT_DIR/SurvPGC_Workspace/${STUDY}/C/${CLINIC_EXPERIMENT}")"
+GENE_DIR="$(resolve_path_or_default "${GENE_DIR_PATH}" "$SCRIPT_DIR/SurvPGC_Workspace/${STUDY}/G/${GENE_EXPERIMENT}")"
+CLINICAL_FILE="$SCRIPT_DIR/datasets_csv/clinical_data/${STUDY}_clinical.csv"
 SPLIT_DIR="$(resolve_path_or_default "${SPLIT_DIR_PATH}" "$SCRIPT_DIR/splits/${WHICH_SPLITS}/${STUDY}")"
 
 EXTRA_ARGS=()
@@ -222,6 +224,7 @@ if [ -f "$OUT_DIR/.done" ]; then
 fi
 
 require_path "$LABEL_FILE" "label_file"
+require_path "$CLINICAL_FILE" "clinical_file"
 require_path "$OMICS_DIR" "omics_dir"
 require_path "$DATA_ROOT_DIR" "data_root_dir"
 require_path "$CLINIC_DIR" "clinic_dir"
@@ -253,6 +256,7 @@ cmd=(
     --data_root_dir "$DATA_ROOT_DIR"
     --label_file "$LABEL_FILE"
     --omics_dir "$OMICS_DIR"
+    --clinical_file "$CLINICAL_FILE"
     --clinic_dir "$CLINIC_DIR"
     --gene_dir "$GENE_DIR"
     --num_patches "$NUM_PATCHES"

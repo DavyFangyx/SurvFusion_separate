@@ -1,0 +1,102 @@
+version: 1
+
+datasets:
+  tcga_brca:
+    display_name: TCGA-BRCA
+    deployment_doc: datasets/tcga_brca.md
+    stats_dir: data_tcgal_stats/TCGA-BRCA
+    metadata_csv: datasets_csv/metadata/tcga_brca.csv
+    clinical_csv: datasets_csv/clinical_data/tcga_brca_clinical.csv
+    rna_dir: datasets_csv/raw_rna_data/combine/brca
+    feature_manifest_csv: datasets_csv/feature_manifests/tcga_brca.csv
+    split_dir: splits/5foldcv/tcga_brca
+    workspace_root: SurvPGC_Workspace/tcga_brca
+    enabled: true
+  tcga_coad:
+    display_name: TCGA-COAD
+    deployment_doc: datasets/tcga_coad.md
+    stats_dir: data_tcgal_stats/TCGA-COAD
+    metadata_csv: datasets_csv/metadata/tcga_coad.csv
+    clinical_csv: datasets_csv/clinical_data/tcga_coad_clinical.csv
+    rna_dir: datasets_csv/raw_rna_data/combine/coad
+    feature_manifest_csv: datasets_csv/feature_manifests/tcga_coad.csv
+    split_dir: splits/5foldcv/tcga_coad
+    workspace_root: SurvPGC_Workspace/tcga_coad
+    enabled: true
+  tcga_kich:
+    display_name: TCGA-KICH
+    deployment_doc: datasets/tcga_kich.md
+    stats_dir: data_tcgal_stats/TCGA-KICH
+    metadata_csv: datasets_csv/metadata/tcga_kich.csv
+    clinical_csv: datasets_csv/clinical_data/tcga_kich_clinical.csv
+    rna_dir: datasets_csv/raw_rna_data/combine/kich
+    feature_manifest_csv: datasets_csv/feature_manifests/tcga_kich.csv
+    split_dir: splits/5foldcv/tcga_kich
+    workspace_root: SurvPGC_Workspace/tcga_kich
+    enabled: true
+  tcga_kirc:
+    display_name: TCGA-KIRC
+    deployment_doc: datasets/tcga_kirc.md
+    stats_dir: data_tcgal_stats/TCGA-KIRC
+    metadata_csv: datasets_csv/metadata/tcga_kirc.csv
+    clinical_csv: datasets_csv/clinical_data/tcga_kirc_clinical.csv
+    rna_dir: datasets_csv/raw_rna_data/combine/kirc
+    feature_manifest_csv: datasets_csv/feature_manifests/tcga_kirc.csv
+    split_dir: splits/5foldcv/tcga_kirc
+    workspace_root: SurvPGC_Workspace/tcga_kirc
+    enabled: true
+  tcga_kirp:
+    display_name: TCGA-KIRP
+    deployment_doc: datasets/tcga_kirp.md
+    stats_dir: data_tcgal_stats/TCGA-KIRP
+    metadata_csv: datasets_csv/metadata/tcga_kirp.csv
+    clinical_csv: datasets_csv/clinical_data/tcga_kirp_clinical.csv
+    rna_dir: datasets_csv/raw_rna_data/combine/kirp
+    feature_manifest_csv: datasets_csv/feature_manifests/tcga_kirp.csv
+    split_dir: splits/5foldcv/tcga_kirp
+    workspace_root: SurvPGC_Workspace/tcga_kirp
+    enabled: true
+  tcga_lihc:
+    display_name: TCGA_LIHC
+    deployment_doc: datasets/tcga_lihc.md
+    stats_dir: data_tcgal_stats/TCGA_LIHC
+    metadata_csv: datasets_csv/metadata/tcga_lihc.csv
+    clinical_csv: datasets_csv/clinical_data/tcga_lihc_clinical.csv
+    rna_dir: datasets_csv/raw_rna_data/combine/lihc
+    feature_manifest_csv: datasets_csv/feature_manifests/tcga_lihc.csv
+    split_dir: splits/5foldcv/tcga_lihc
+    workspace_root: SurvPGC_Workspace/tcga_lihc
+    enabled: true
+  tcga_prad:
+    display_name: TCGA-PRAD
+    deployment_doc: datasets/tcga_prad.md
+    stats_dir: data_tcgal_stats/TCGA-PRAD
+    metadata_csv: datasets_csv/metadata/tcga_prad.csv
+    clinical_csv: datasets_csv/clinical_data/tcga_prad_clinical.csv
+    rna_dir: datasets_csv/raw_rna_data/combine/prad
+    feature_manifest_csv: datasets_csv/feature_manifests/tcga_prad.csv
+    split_dir: splits/5foldcv/tcga_prad
+    workspace_root: SurvPGC_Workspace/tcga_prad
+    enabled: true
+  tcga_read:
+    display_name: TCGA-READ
+    deployment_doc: datasets/tcga_read.md
+    stats_dir: data_tcgal_stats/TCGA-READ
+    metadata_csv: datasets_csv/metadata/tcga_read.csv
+    clinical_csv: datasets_csv/clinical_data/tcga_read_clinical.csv
+    rna_dir: datasets_csv/raw_rna_data/combine/read
+    feature_manifest_csv: datasets_csv/feature_manifests/tcga_read.csv
+    split_dir: splits/5foldcv/tcga_read
+    workspace_root: SurvPGC_Workspace/tcga_read
+    enabled: true
+  tcga_stad:
+    display_name: TCGA-STAD
+    deployment_doc: datasets/tcga_stad.md
+    stats_dir: data_tcgal_stats/TCGA-STAD
+    metadata_csv: datasets_csv/metadata/tcga_stad.csv
+    clinical_csv: datasets_csv/clinical_data/tcga_stad_clinical.csv
+    rna_dir: datasets_csv/raw_rna_data/combine/stad
+    feature_manifest_csv: datasets_csv/feature_manifests/tcga_stad.csv
+    split_dir: splits/5foldcv/tcga_stad
+    workspace_root: SurvPGC_Workspace/tcga_stad
+    enabled: true

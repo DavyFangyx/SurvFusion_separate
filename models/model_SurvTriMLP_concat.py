@@ -3,9 +3,9 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
-from models.model_MLP_CLINIC import MLPClinic
-from models.model_MLP_GENE_F import MLPGeneFM
-from models.model_MLPWSI import MLPWSI
+from models.model_single_clinic import MLPClinic
+from models.model_single_gene import MLPGeneFM
+from models.model_single_wsi import MLPWSI
 # from models.model_TransMIL import TransMIL
 
 

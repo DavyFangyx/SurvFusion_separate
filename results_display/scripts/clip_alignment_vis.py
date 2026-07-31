@@ -55,11 +55,8 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJ_ROOT = os.path.dirname(SCRIPT_DIR)
 sys.path.insert(0, PROJ_ROOT)
 
-DEFAULT_WSI_DIR = os.path.join(PROJ_ROOT, "SurvPGC_Workspace/P/uni_v1")
-DEFAULT_GENE_DIR = os.path.join(PROJ_ROOT, "SurvPGC_Workspace/G/scFoundation_embedding_cell_norm")
-DEFAULT_CLINIC_DIR = os.path.join(PROJ_ROOT, "SurvPGC_Workspace/C/O_simple")
-DEFAULT_LABEL_FILE = os.path.join(PROJ_ROOT, "datasets_csv/metadata/tcga_kirc.csv")
-DEFAULT_SPLIT_DIR = os.path.join(PROJ_ROOT, "splits/5foldcv/tcga_kirc")
+from dataset_deployment.registry import infer_standard_paths
+
 DEFAULT_RESULTS_ROOT = os.path.join(PROJ_ROOT, "results")
 DEFAULT_OUTPUT_ROOT = os.path.join(SCRIPT_DIR, "aclip_effect")
 
@@ -80,17 +77,17 @@ _MODALITY_COLORS = {
 def parse_args():
     parser = argparse.ArgumentParser(description="Visualize Stage1 CLIP alignment for SurvFusion models")
     parser.add_argument("--method", choices=["pca", "pacmap", "opentsne", "pymde", "umap", "tsne"], default="pca")
-    parser.add_argument("--study", type=str, default="tcga_kirc")
+    parser.add_argument("--study", type=str, default="tcga_coad")
     parser.add_argument("--fold", type=int, default=0)
     parser.add_argument("--sample_set", choices=["all", "train", "val", "test", "trainval"], default="train")
     parser.add_argument("--num_patches", type=int, default=4096, help="Max WSI patches per patient, matched to training")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--wsi_dir", type=str, default=DEFAULT_WSI_DIR)
-    parser.add_argument("--gene_dir", type=str, default=DEFAULT_GENE_DIR)
-    parser.add_argument("--clinic_dir", type=str, default=DEFAULT_CLINIC_DIR,
+    parser.add_argument("--wsi_dir", type=str, default=None)
+    parser.add_argument("--gene_dir", type=str, default=None)
+    parser.add_argument("--clinic_dir", type=str, default=None,
                         help="Direct clinic embedding dir")
-    parser.add_argument("--label_file", type=str, default=DEFAULT_LABEL_FILE)
-    parser.add_argument("--split_dir", type=str, default=DEFAULT_SPLIT_DIR)
+    parser.add_argument("--label_file", type=str, default=None)
+    parser.add_argument("--split_dir", type=str, default=None)
     parser.add_argument("--results_root", type=str, default=DEFAULT_RESULTS_ROOT)
     parser.add_argument("--exp_group", type=str, default="clinic_test")
     parser.add_argument("--run_name", type=str, default="A_profile")
@@ -111,7 +108,19 @@ def parse_args():
     parser.add_argument("--outdir", type=str, default=None,
                         help="Output directory. Default: results_display/aclip_effect/<exp_group>/<run_name>/<modality>")
     parser.add_argument("--no_cuda", action="store_true")
-    return parser.parse_args()
+    args = parser.parse_args()
+    inferred = infer_standard_paths(args.study, PROJ_ROOT)
+    if args.wsi_dir is None:
+        args.wsi_dir = str(inferred["data_root_dir"])
+    if args.gene_dir is None:
+        args.gene_dir = str(inferred["gene_dir"])
+    if args.clinic_dir is None:
+        args.clinic_dir = str(inferred["clinic_dir"])
+    if args.label_file is None:
+        args.label_file = str(inferred["label_file"])
+    if args.split_dir is None:
+        args.split_dir = str(inferred["split_dir"])
+    return args
 
 
 def validate_dirs(args):

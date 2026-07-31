@@ -20,12 +20,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from dataset_deployment.registry import get_dataset_config, list_enabled_studies
 
-DATASETS = ["tcga_kich", "tcga_kirc", "tcga_kirp"]
+DATASETS = list_enabled_studies()
 DATASET_LABELS = {
-    "tcga_kich": "KICH",
-    "tcga_kirc": "KIRC",
-    "tcga_kirp": "KIRP",
+    study: get_dataset_config(study).display_name.replace("TCGA-", "").replace("TCGA_", "")
+    for study in DATASETS
 }
 SERIES_ORDER = {
     "WSItest_F": 0,

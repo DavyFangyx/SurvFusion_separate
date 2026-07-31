@@ -1,17 +1,13 @@
 #!/bin/bash
 # exp_gen/gen_Clinictest_Li.sh
-# 生成 Clinictest_Li 的 config：6 个 clinic 特征 × 3 个 study × 4 个模型 = 72 个 config
+# 生成 Clinictest_Li 的 config：按注册表启用的数据集批量展开
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT_DIR="$SCRIPT_DIR/configs/queue"
 mkdir -p "$OUT_DIR"
 
-STUDIES=(
-    tcga_kich
-    tcga_kirc
-    tcga_kirp
-)
+mapfile -t STUDIES < <(PYTHONPATH="$SCRIPT_DIR" python -c 'from dataset_deployment.registry import list_enabled_studies; print("\n".join(list_enabled_studies()))')
 
 CLINICS=(
     L0

@@ -15,6 +15,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 
+from dataset_deployment.workspace_features import build_case_feature_index, resolve_case_feature_path
 from utils.general_utils import _series_intersection
 
 
@@ -41,6 +42,7 @@ class SurvivalDatasetFactory:
         is_survpc=True,
         is_survpc_f=True,
         type_of_pathway="combine",
+        clinical_file=None,
         ):
         r"""
         Initialize the factory to store metadata, survival label, and slide_ids for each case id. 
@@ -68,6 +70,7 @@ class SurvivalDatasetFactory:
         self.label_file = label_file
         self.omics_dir = omics_dir
         self.data_dir = data_dir
+        self.clinical_file = clinical_file
         self.seed = seed
         self.print_info = print_info
         self.train_ids, self.val_ids = (None, None)
@@ -84,6 +87,7 @@ class SurvivalDatasetFactory:
         self.type_of_path = type_of_pathway
         self.wsi_filter_summary = {}
         self.wsi_filter_removed_rows = []
+        self._feature_path_cache = {}
 
         if self.label_col == "survival_months":
             self.survival_endpoint = "OS"
@@ -180,7 +184,7 @@ class SurvivalDatasetFactory:
             - None
             
         """
-        path_to_data = "./datasets_csv/clinical_data/{}_clinical.csv".format(self.study)
+        path_to_data = getattr(self, "clinical_file", None) or "./datasets_csv/clinical_data/{}_clinical.csv".format(self.study)
         self.clinical_data = pd.read_csv(path_to_data, index_col=0)
     
     def _setup_omics_data(self):
@@ -721,6 +725,7 @@ class SurvivalDataset(Dataset):
         self.omic_names = omic_names
         self.num_pathways = len(omic_names)
         self.sample = sample
+        self._feature_path_cache = {}
 
         # for weighted sampling
         self.slide_cls_id_prep()
@@ -846,6 +851,7 @@ class SurvivalDataset(Dataset):
             "survtri_snn_mhsa",
             "survtri_mlp_concat",
             "survtri_mlp_mhsa",
+            "survtri_poe_vae",
         ]:
             patch_features, mask = self._load_wsi_embs_from_path(self.data_dir, slide_ids)
             gene_features = self._load_gene_embs_from_path(self.gene_dir, slide_ids)
@@ -943,11 +949,8 @@ class SurvivalDataset(Dataset):
 
 
     def _load_gene_embs_from_path(self, gene_dir, slide_ids):
-        # Gene files are stored per case_id (first 12 chars), not per slide.
-        # Loading once avoids silent token duplication for multi-slide patients,
-        # which would break the fixed-offset slicing in model forward passes.
         case_id = slide_ids[0][0:12]
-        feature_path = os.path.join(gene_dir, '{}.pt'.format(case_id))
+        feature_path = self._resolve_case_feature_path(gene_dir, case_id)
         gene_features = torch.load(feature_path)
 
         return gene_features
@@ -966,14 +969,28 @@ class SurvivalDataset(Dataset):
             - clinic_features : torch.Tensor
 
         """
-        # Clinical files are stored per case_id (first 12 chars), not per slide.
-        # Loading once avoids silent token duplication for multi-slide patients,
-        # which would break the fixed-offset slicing in model forward passes.
         case_id = slide_ids[0][0:12]
-        feature_path = os.path.join(clinic_dir, '{}.pt'.format(case_id))
+        feature_path = self._resolve_case_feature_path(clinic_dir, case_id)
         clinic_features = torch.load(feature_path)
 
         return clinic_features
+
+    def _resolve_case_feature_path(self, feature_dir, case_id):
+        cache_key = str(feature_dir)
+        if cache_key not in self._feature_path_cache:
+            self._feature_path_cache[cache_key] = build_case_feature_index(feature_dir)
+
+        feature_path = resolve_case_feature_path(
+            feature_dir,
+            case_id,
+            case_index=self._feature_path_cache[cache_key],
+        )
+        if feature_path is None:
+            raise FileNotFoundError(
+                f"No case feature file found for case_id '{case_id}' under '{feature_dir}'. "
+                "Expected either '<case_id>.pt' or a filename containing the TCGA case id."
+            )
+        return str(feature_path)
 
     def _load_clinic_embs_onehot(self, slide_ids):
         file_path = 'D:/PycharmProjects/SurvPath-main/datasets_csv/prompt_generate/tcga-brca-clinical-one-hot.csv'

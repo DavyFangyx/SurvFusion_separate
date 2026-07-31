@@ -53,6 +53,19 @@ def _prepare_for_experiment(args):
     args = _get_custom_exp_code(args)
     _seed_torch(args.seed)
 
+    required_paths = {
+        'label_file': args.label_file,
+        'clinical_file': getattr(args, 'clinical_file', None),
+        'omics_dir': args.omics_dir,
+        'data_root_dir': args.data_root_dir,
+        'clinic_dir': args.clinic_dir,
+        'gene_dir': args.gene_dir,
+        'split_dir': args.split_dir,
+    }
+    missing = [f"{name}={path}" for name, path in required_paths.items() if path and not os.path.exists(path)]
+    if missing:
+        raise FileNotFoundError("Missing required training inputs:\n" + "\n".join(missing))
+
     assert os.path.isdir(args.split_dir)
     print('Split dir:', args.split_dir)
 
@@ -68,6 +81,12 @@ def _prepare_for_experiment(args):
                 'results_dir': args.results_dir, 
                 'lr': args.lr,
                 'experiment': args.study,
+                'label_file': args.label_file,
+                'clinical_file': getattr(args, 'clinical_file', None),
+                'omics_dir': args.omics_dir,
+                'data_root_dir': args.data_root_dir,
+                'clinic_dir': args.clinic_dir,
+                'gene_dir': args.gene_dir,
                 'reg': args.reg,
                 # 'label_frac': args.label_frac,
                 'bag_loss': args.bag_loss,

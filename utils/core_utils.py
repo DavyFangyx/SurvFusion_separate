@@ -6,13 +6,9 @@ import pandas as pd
 from utils.file_utils import _save_pkl
 from custom_optims.radam import RAdam
 from models.model_ABMIL import ABMIL
-from models.model_MLP_GENE import MLPGene
-from models.model_MLP_GENE_F import MLPGeneFM
-from models.model_MLP_CLINIC import MLPClinic
-from models.model_MLP_WSI import MLPWSI
-from models.model_SNN_GENE import SNNGene
-from models.model_SNN_GENE_F import SNNGeneFM
-from models.model_SNN_CLINIC import SNNClinic
+from models.model_single_clinic import CoxClinic, MLPClinic, SNNClinic
+from models.model_single_gene import MLPGene, MLPGeneFM, SNNGene, SNNGeneFM
+from models.model_single_wsi import MLPWSI
 from models.model_MCATPathways import MCAT_Surv
 from models.model_PORPOISE import PorpoiseMMF
 from models.model_SurvPath import SurvPath
@@ -22,7 +18,6 @@ from models.model_SurvPC_foundation import SurvPC_F
 from models.model_TransMIL import TransMIL
 from models.model_SurvGC_foundation import SurvGC_F
 from models.model_MLPPC_concat import MLPPC_concat
-from models.model_CoxClinic import CoxClinic
 from models.model_SurvFusion_separate import SurvFusion
 from models.model_SurvFusion_noalign import SurvFusionNoAlign
 from models.model_SurvFusion_joint import SurvFusionJoint

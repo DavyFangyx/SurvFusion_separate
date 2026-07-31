@@ -1,17 +1,13 @@
 #!/bin/bash
 # exp_gen/gen_WSItest_F.sh
-# 生成 WSItest_F 的 config：2 个 WSI 特征 × 3 个 study × 3 个模型 = 18 个 config
+# 生成 WSItest_F 的 config：按注册表启用的数据集批量展开
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 OUT_DIR="$SCRIPT_DIR/configs/queue"
 mkdir -p "$OUT_DIR"
 
-STUDIES=(
-    tcga_kich
-    tcga_kirc
-    tcga_kirp
-)
+mapfile -t STUDIES < <(PYTHONPATH="$SCRIPT_DIR" python -c 'from dataset_deployment.registry import list_enabled_studies; print("\n".join(list_enabled_studies()))')
 
 WSI_EXPERIMENTS=(
     uni_v1

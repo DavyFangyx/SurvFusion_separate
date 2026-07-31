@@ -27,11 +27,13 @@ from matplotlib.colors import LinearSegmentedColormap, PowerNorm, TwoSlopeNorm
 from matplotlib.lines import Line2D
 from scipy.stats import friedmanchisquare
 
+from dataset_deployment.registry import get_dataset_config, list_enabled_studies
 
+
+DATASETS = list_enabled_studies()
 DATASET_LABELS = {
-    "tcga_kich": "KICH",
-    "tcga_kirc": "KIRC",
-    "tcga_kirp": "KIRP",
+    study: get_dataset_config(study).display_name.replace("TCGA-", "").replace("TCGA_", "")
+    for study in DATASETS
 }
 
 MODALITY_COLORS = {
@@ -112,7 +114,7 @@ def cleanup_old_outputs(fig_dir: Path) -> None:
 def plot_panorama_per_dataset(sum_dir: Path, internal_dir: Path, fig_dir: Path) -> None:
     mean_df = pd.read_csv(resolve_csv(sum_dir, internal_dir, "panorama_matrix_mean.csv"))
     std_df = pd.read_csv(resolve_csv(sum_dir, internal_dir, "panorama_matrix_std.csv"))
-    datasets = ["tcga_kich", "tcga_kirc", "tcga_kirp"]
+    datasets = DATASETS
     config_labels = mean_df["config_label"].tolist()
     modality_meta = mean_df[["config_label", "modality"]].copy()
     breaks = modality_breaks(modality_meta)
@@ -195,9 +197,7 @@ def plot_panorama_per_dataset(sum_dir: Path, internal_dir: Path, fig_dir: Path) 
 
 def build_delta_row_labels(df: pd.DataFrame) -> list[str]:
     excluded = {
-        "tcga_kich",
-        "tcga_kirc",
-        "tcga_kirp",
+        *DATASETS,
         "positive_count",
         "available_n",
         "consistency",
@@ -235,7 +235,7 @@ def plot_delta_heatmaps(sum_dir: Path, internal_dir: Path, fig_dir: Path) -> Non
         "delta_model_snn_vs_mlp_gene.csv",
         "delta_model_snn_vs_mlp_clinical.csv",
     ]
-    datasets = ["tcga_kich", "tcga_kirc", "tcga_kirp"]
+    datasets = DATASETS
 
     matrices: list[tuple[str, pd.DataFrame]] = []
     for file_name in delta_files:
@@ -269,7 +269,7 @@ def plot_delta_heatmaps(sum_dir: Path, internal_dir: Path, fig_dir: Path) -> Non
 def plot_clinical_trends(sum_dir: Path, internal_dir: Path, fig_dir: Path) -> None:
     trend_df = pd.read_csv(resolve_csv(sum_dir, internal_dir, "clinical_layer_trend_long.csv"))
     rho_df = pd.read_csv(resolve_csv(sum_dir, internal_dir, "4_clinical_layer_spearman_summary.csv"))
-    datasets = ["tcga_kich", "tcga_kirc", "tcga_kirp"]
+    datasets = DATASETS
 
     fig, axes = plt.subplots(1, 3, figsize=(16, 5.6), sharey=True)
     for ax, dataset in zip(axes, datasets):

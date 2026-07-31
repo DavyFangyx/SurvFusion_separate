@@ -121,6 +121,7 @@ if __name__ == "__main__":
         label_file=args.label_file,
         omics_dir=args.omics_dir,
         data_dir=args.data_root_dir,
+        clinical_file=args.clinical_file,
         seed=args.seed, 
         print_info=True, 
         n_bins=args.n_classes, 
