@@ -613,7 +613,7 @@ class SubsetSequentialSampler(Sampler):
 		return len(self.indices)
 
 
-def _get_split_loader(args, split_dataset, training = False, testing = False, weighted = False, batch_size=1):
+def _get_split_loader(args, split_dataset, training = False, testing = False, weighted = False, batch_size=1, disable_cox_batch_override=False):
     r"""
     Take a dataset and make a dataloader from it using a custom collate function. 
 
@@ -668,7 +668,7 @@ def _get_split_loader(args, split_dataset, training = False, testing = False, we
         raise NotImplementedError
 
     effective_batch_size = batch_size
-    if args.bag_loss == 'cox_surv':
+    if args.bag_loss == 'cox_surv' and not disable_cox_batch_override:
         effective_batch_size = max(1, len(split_dataset))
 
     if not testing:

@@ -1495,7 +1495,7 @@ def _train_val_test(datasets, cur, args):
     if args.modality in POE_MODALITIES and args.poe_variant in {'A', 'B'}:
         stage1_train_loader = _get_split_loader(
             args, train_split, training=True, testing=False,
-            weighted=args.weighted_sample, batch_size=args.batch_size_stage1
+            weighted=args.weighted_sample, batch_size=1
         )
         _step_stage1_poe(cur, args, model, stage1_train_loader, val_loader)
 

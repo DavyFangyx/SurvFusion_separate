@@ -313,9 +313,11 @@ class WSIEncoderVIB(nn.Module):
         mlp_dim=1024,
         num_layers=2,
         dropout=0.1,
+        max_tokens=4096,
     ):
         super().__init__()
         self.token_dim = token_dim
+        self.max_tokens = max_tokens
         self.input_proj = nn.Linear(input_dim, token_dim)
         self.mu_query = nn.Parameter(torch.randn(1, 1, token_dim) * 0.02)
         self.logvar_query = nn.Parameter(torch.randn(1, 1, token_dim) * 0.02)
@@ -357,7 +359,14 @@ class WSIEncoderVIB(nn.Module):
 
     def forward(self, x, padding_mask=None):
         batch_size = x.shape[0]
+        if x.shape[1] > self.max_tokens:
+            keep_idx = torch.linspace(0, x.shape[1] - 1, self.max_tokens, device=x.device).long()
+            x = x.index_select(dim=1, index=keep_idx)
+            padding_mask = None
+
         tokens = self.input_proj(x)
+        if padding_mask is not None and padding_mask.shape[1] != tokens.shape[1]:
+            padding_mask = None
         tokens, padding_mask, height, width = self._pad_to_square(tokens, padding_mask)
 
         mu_query = self.mu_query.expand(batch_size, -1, -1)

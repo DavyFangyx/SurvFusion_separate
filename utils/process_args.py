@@ -86,7 +86,7 @@ def _process_args():
     # Stage-1 params for two-stage training models (e.g. survfusion_separate)
     parser.add_argument('--lr_stage1', type=float, default=0.0001, help='learning rate for stage-1 alignment training')
     parser.add_argument('--max_epochs_stage1', type=int, default=40, help='max epochs for stage-1 alignment training')
-    parser.add_argument('--batch_size_stage1', type=int, default=32, help='batch size for stage-1 alignment training')
+    parser.add_argument('--batch_size_stage1', type=int, default=1, help='batch size for stage-1 VAE training')
 
     # ── SurvFusion 消融实验参数 ─────────────────────────────────────────────
     # 实验2: 联合训练时 alignment_loss 的权重 λ ∈ {0.01, 0.1, 0.5}
