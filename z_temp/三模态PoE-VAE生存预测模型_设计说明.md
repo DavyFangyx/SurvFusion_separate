@@ -247,7 +247,90 @@ Model_A 的线性探针 head 除外——那是一个单独的、极简的线性
 
 ---
 
-## 11. 当前可直接运行的测试命令
+## 11. 各组的训练监控体系
+
+当前 `survtri_poe_vae` 已接入 WandB 监控，覆盖 Model_A / Model_B / Model_C。
+
+- Model_A：
+  stage1 为 VAE 预训练；
+  stage2 为冻结 backbone 后的线性 Cox probe。
+- Model_B：
+  stage1 为 VAE 预训练；
+  stage2 为 `fuse_fc + classifier + Cox` 微调。
+- Model_C：
+  直接进行联合训练，优化 `VAE + survival`。
+
+### 11.1 Step 级监控
+
+在 TriPoEVAE 的训练 step 中记录：
+
+- `loss/total`
+- `loss/rec_wsi`
+- `loss/rec_gene`
+- `loss/rec_clinic`
+- `loss/kl_or_jeffreys`
+- `logvar_obs_wsi`
+- `logvar_obs_gene`
+- `logvar_obs_clinic`
+
+其中：
+
+- `loss/rec_*` 为三路重建损失的加权值
+- `loss/kl_or_jeffreys` 当前对应 Jeffreys 散度
+- `logvar_obs_*` 为三路可学习观测方差
+
+### 11.2 Epoch 级监控
+
+每个 epoch 记录潜空间与 PoE 健康度：
+
+- `z/mean_norm`
+- `z/mean_std`
+- `poe/alpha_wsi`
+- `poe/alpha_gene`
+- `poe/alpha_clinic`
+
+其中：
+
+- `z/mean_norm` 为 batch 内 `mu_joint` 的平均 L2 norm
+- `z/mean_std` 为 batch 内 `z_joint` 各维度方差的均值
+- `poe/alpha_*` 为 PoE 权重 softmax 后的 batch 平均值
+
+### 11.3 生存监控
+
+在包含 Cox 优化的训练阶段按 epoch 记录：
+
+- `loss/surv`
+
+说明：
+
+- Model_A / Model_B 的 stage1 纯 VAE 训练阶段不包含 survival loss
+- Model_A / Model_B 的 stage2，以及 Model_C 的联合训练阶段会记录 `loss/surv`
+
+### 11.4 WandB 开启方式
+
+当前 WandB 由命令行参数控制：
+
+- `--wandb_mode disabled`
+- `--wandb_mode offline`
+- `--wandb_mode online`
+- `--wandb_project <project_name>`
+- `--wandb_entity <entity_name>`
+
+示例：
+
+```bash
+CUDA_VISIBLE_DEVICES=0 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+  --study tcga_kirc \
+  --modality survtri_poe_vae \
+  --poe_variant C \
+  --bag_loss cox_surv \
+  --wandb_mode online \
+  --wandb_project SurvPGC
+```
+
+---
+
+## 12. 当前可直接运行的测试命令（集成了wandb后的）
 
 以下命令针对当前仓库的真实目录结构编写，默认：
 
@@ -273,12 +356,21 @@ CUDA_VISIBLE_DEVICES=0
 
 下面示例使用 `tcga_kirc`、`P/uni_v1`、`C/L4`、`G/scFoundation_embedding_cell_norm`，并只跑 `fold 0` 进行单折测试。
 
-### 11.1 Model_A：VAE 预训练 + 冻结 backbone + 线性 Cox probe
+### 12.1 Model_A：VAE 预训练 + 冻结 backbone + 线性 Cox probe
 
 ```bash
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
+conda activate SurvPGC
+离线模式
+  --wandb_mode offline
+在线模式
+  --wandb_mode online \
+  --wandb_project SurvPGC_MultiVAE \
+  --wandb_entity davyfangyuxuan-nanjing-university-of-aeronautics-and-ast #组织
+第一次用这个环境时执行：
+/data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python -m wandb login
 
-CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_kirc \
   --modality survtri_poe_vae \
   --poe_variant A \
@@ -294,16 +386,18 @@ CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --max_epochs 12 \
   --warmup_epochs 3 \
   --batch_size_stage1 1 \
+  --wandb_mode online \
+  --wandb_project SurvPGC_MultiVAE \
   --exp_group poe_vae_test \
   --run_name model_A
 ```
 
-### 11.2 Model_B：VAE 预训练 + `fuse_fc + classifier + Cox`
+### 12.2 Model_B：VAE 预训练 + `fuse_fc + classifier + Cox`
 
 ```bash
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 
-CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+CUDA_VISIBLE_DEVICES=2 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_kirc \
   --modality survtri_poe_vae \
   --poe_variant B \
@@ -319,16 +413,18 @@ CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --max_epochs 12 \
   --warmup_epochs 3 \
   --batch_size_stage1 1 \
+  --wandb_mode online \
+  --wandb_project SurvPGC_MultiVAE \
   --exp_group poe_vae_test \
   --run_name model_B
 ```
 
-### 11.3 Model_C：联合训练 `L_rec + βJ + λL_surv`
+### 12.3 Model_C：联合训练 `L_rec + βJ + λL_surv`
 
 ```bash
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 
-CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_kirc \
   --modality survtri_poe_vae \
   --poe_variant C \
@@ -343,11 +439,13 @@ CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --max_epochs 12 \
   --warmup_epochs 3 \
   --poe_surv_lambda 1.0 \
+  --wandb_mode online \
+  --wandb_project SurvPGC_MultiVAE \
   --exp_group poe_vae_test \
   --run_name model_C
 ```
 
-### 11.4 说明
+### 12.4 说明
 
 - 若已 `conda activate SurvPGC`，也可以将上面命令中的 Python 路径替换为：
   `python`
@@ -358,4 +456,3 @@ CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   `--gene_dir`
   `--clinic_dir`
   `--split_dir`
-

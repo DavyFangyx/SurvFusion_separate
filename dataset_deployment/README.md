@@ -5,8 +5,8 @@
 **构建步骤**
 
 1. 数据集注册  
-`registry.yaml`：给人看，登记有哪些数据集、标准输出在哪里。  （填写）
-`registry.py`：给代码读，训练脚本和构建脚本真正使用它。（修改）
+`registry.yaml`：给人看，登记有哪些数据集、标准输出在哪里。  
+`registry.py`：给代码读，训练脚本和构建脚本真正使用它。
 
 2. 构建患者统计  
 `data_tcgal_stats/<dataset>/`
@@ -37,6 +37,26 @@ python dataset_deployment/scripts/generate_feature_manifest.py --all
 ```bash
 python dataset_deployment/scripts/generate_5fold_splits.py --all
 ```
+
+当前 `generate_5fold_splits.py` 的机制：
+
+- 先读取 `data_tcgal_stats/<dataset>/*_patients.csv` 里的患者全集
+- 再联合检查当前训练真实输入是否齐全：
+  - `P`：`SurvPGC_Workspace/<study>/P/uni_v1`
+  - `C`：`SurvPGC_Workspace/<study>/C/L0~L5`
+  - `G foundation`：`SurvPGC_Workspace/<study>/G/*`
+  - `G csv`：`datasets_csv/raw_rna_data/combine/<study>/rna_clean.csv`
+- 只有 `P/C/G` 全部齐全的患者，才进入最终 split
+- 生成：
+  - `split_eligibility.csv`：逐患者记录是否合格以及缺失原因
+  - `split_cohort_metadata.csv`：最终进入 split 的 metadata 子集
+  - `splits_0.csv ~ splits_4.csv`：真正训练使用的五折划分
+- 如果某个数据集当前没有任何合格样本：
+  - 保留 `split_eligibility.csv`
+  - 保留空的 `split_cohort_metadata.csv`
+  - 不生成 `splits_0~4.csv`
+  - 在 `splits/5foldcv/汇总.csv` 里记录状态
+- 划分时按 `censorship` 做事件/删失分层，避免某一折验证集全删失
 
 5. 对齐训练特征  
 `SurvPGC_Workspace/<study>/P`  
@@ -92,3 +112,9 @@ python dataset_deployment/scripts/generate_dataset.py --study tcga_coad --valida
 - `scripts/`：实际生成与校验脚本
 - `schemas/`：输出格式约定
 - `datasets/`：每个数据集的原始结构说明
+
+旧的 `generate_requirements/` 已移除，统一改用：
+
+```bash
+python dataset_deployment/scripts/...
+```

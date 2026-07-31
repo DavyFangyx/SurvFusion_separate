@@ -117,6 +117,13 @@ def _process_args():
                         help='target beta for TriPoEVAE Jeffreys warmup')
     parser.add_argument('--poe_transformer_layers', type=int, default=1,
                         help='number of transformer layers for gene/clinic encoders in TriPoEVAE')
+    parser.add_argument('--wandb_mode', type=str, default='disabled',
+                        choices=['disabled', 'offline', 'online'],
+                        help='Weights & Biases logging mode')
+    parser.add_argument('--wandb_project', type=str, default='SurvPGC',
+                        help='Weights & Biases project name')
+    parser.add_argument('--wandb_entity', type=str, default=None,
+                        help='Weights & Biases entity/team name')
 
     #---> model related
     parser.add_argument('--fusion', type=str, default=None, choices=['concat', 'bilinear'])

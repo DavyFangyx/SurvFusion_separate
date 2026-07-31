@@ -44,6 +44,10 @@ from utils.general_utils import _get_split_loader, _print_network, _save_splits
 from utils.loss_func import NLLSurvLoss, NLLDiffSurvLoss, CoxSurvLoss
 
 import torch.optim as optim
+try:
+    import wandb
+except ImportError:  # pragma: no cover
+    wandb = None
 
 
 CSV_GENE_MODALITIES = {"mlp_gene", "snn_gene"}
@@ -60,6 +64,77 @@ TRIMODAL_MODALITIES = {
     "survtri_mlp_mhsa",
 }
 POE_MODALITIES = {"survtri_poe_vae"}
+
+
+def _wandb_enabled(args):
+    return wandb is not None and getattr(args, "wandb_run", None) is not None
+
+
+def _wandb_log(args, payload, step=None):
+    if not _wandb_enabled(args):
+        return
+    clean_payload = {}
+    for key, value in payload.items():
+        if isinstance(value, torch.Tensor):
+            value = value.detach().cpu().item()
+        elif isinstance(value, np.generic):
+            value = value.item()
+        clean_payload[key] = value
+    wandb.log(clean_payload, step=step)
+
+
+def _init_poe_epoch_monitor():
+    return {
+        "count": 0,
+        "mean_norm_sum": 0.0,
+        "mean_std_sum": 0.0,
+        "alpha_sum": np.zeros(3, dtype=np.float64),
+    }
+
+
+def _update_poe_epoch_monitor(monitor, cached_outputs):
+    mu_joint = cached_outputs["mu_joint"].detach()
+    z_joint = cached_outputs["z_joint"].detach()
+    poe_weights = cached_outputs["poe_weights"].detach()
+    batch_size = mu_joint.shape[0]
+
+    monitor["count"] += batch_size
+    monitor["mean_norm_sum"] += torch.norm(mu_joint, dim=1).mean().item() * batch_size
+    monitor["mean_std_sum"] += z_joint.var(dim=0, unbiased=False).mean().item() * batch_size
+    monitor["alpha_sum"] += poe_weights.mean(dim=0).cpu().numpy() * batch_size
+
+
+def _finalize_poe_epoch_monitor(monitor):
+    if monitor["count"] == 0:
+        return {}
+    denom = float(monitor["count"])
+    return {
+        "z/mean_norm": monitor["mean_norm_sum"] / denom,
+        "z/mean_std": monitor["mean_std_sum"] / denom,
+        "poe/alpha_wsi": monitor["alpha_sum"][0] / denom,
+        "poe/alpha_gene": monitor["alpha_sum"][1] / denom,
+        "poe/alpha_clinic": monitor["alpha_sum"][2] / denom,
+    }
+
+
+def _get_poe_step_metrics(model, total_loss, kl_value, phase, beta=None):
+    cached = model.get_cached_outputs()
+    recon_losses = cached["recon_losses"]
+    obs_logvars = model.reconstruction_loss.logvars
+    metrics = {
+        "loss/total": float(total_loss),
+        "loss/rec_wsi": recon_losses["wsi"].detach().item(),
+        "loss/rec_gene": recon_losses["gene"].detach().item(),
+        "loss/rec_clinic": recon_losses["clinic"].detach().item(),
+        "loss/kl_or_jeffreys": float(kl_value),
+        "logvar_obs_wsi": obs_logvars["wsi"].detach().item(),
+        "logvar_obs_gene": obs_logvars["gene"].detach().item(),
+        "logvar_obs_clinic": obs_logvars["clinic"].detach().item(),
+        "trainer/phase": phase,
+    }
+    if beta is not None:
+        metrics["poe/beta"] = float(beta)
+    return metrics
 
 
 
@@ -878,6 +953,9 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
     all_event_times = []
     all_clinical_data = []
     beta = _get_poe_beta(args, epoch) if modality in POE_MODALITIES else None
+    poe_epoch_monitor = _init_poe_epoch_monitor() if modality in POE_MODALITIES else None
+    surv_loss_total = 0.0
+    surv_count = 0
 
     # one epoch
     for batch_idx, data in enumerate(loader):
@@ -907,6 +985,8 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
         elif args.bag_loss == 'cox_surv':
             h, y_disc, event_time, censor, clinical_data_list = _process_data_and_forward(args, model, modality, device, data)
             survival_loss = loss_fn(h=h, t=event_time, c=censor)
+            surv_loss_total += survival_loss.item() * event_time.shape[0]
+            surv_count += event_time.shape[0]
             if modality in POE_MODALITIES:
                 loss = model.combine_loss(survival_loss, beta=beta)
             else:
@@ -933,6 +1013,17 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
             print("batch: {}, loss: {:.3f}".format(processed, loss.item()))
         elif modality in POE_MODALITIES:
             cached = model.get_cached_outputs()
+            _update_poe_epoch_monitor(poe_epoch_monitor, cached)
+            _wandb_log(
+                args,
+                _get_poe_step_metrics(
+                    model,
+                    total_loss=loss.item(),
+                    kl_value=cached["jeffreys"].item(),
+                    phase=f"{args.poe_variant}_stage2",
+                    beta=beta,
+                ),
+            )
             print(
                 "batch: {}, loss: {:.3f}, recon: {:.3f}, jeffreys: {:.3f}".format(
                     batch_idx,
@@ -955,6 +1046,15 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
         c_index = 0.
 
     print('Epoch: {}, train_loss: {:.4f}, train_c_index: {:.4f}'.format(epoch, total_loss, c_index))
+
+    if modality in POE_MODALITIES:
+        epoch_metrics = _finalize_poe_epoch_monitor(poe_epoch_monitor)
+        epoch_metrics["epoch"] = epoch
+        epoch_metrics["train/c_index"] = c_index
+        if surv_count > 0:
+            epoch_metrics["loss/surv"] = surv_loss_total / surv_count
+        epoch_metrics["trainer/phase"] = f"{args.poe_variant}_stage2"
+        _wandb_log(args, epoch_metrics)
 
     return c_index, total_loss
 
@@ -1288,6 +1388,7 @@ def _train_loop_stage1_poe(args, epoch, model, loader, optimizer, scheduler):
     model.set_training_stage("stage1")
     total_loss = 0.
     beta = _get_poe_beta(args, epoch)
+    poe_epoch_monitor = _init_poe_epoch_monitor()
 
     for batch_idx, data in enumerate(loader):
         optimizer.zero_grad()
@@ -1304,6 +1405,17 @@ def _train_loop_stage1_poe(args, epoch, model, loader, optimizer, scheduler):
         scheduler.step()
         total_loss += vae_loss.item()
         cached = model.get_cached_outputs()
+        _update_poe_epoch_monitor(poe_epoch_monitor, cached)
+        _wandb_log(
+            args,
+            _get_poe_step_metrics(
+                model,
+                total_loss=vae_loss.item(),
+                kl_value=cached["jeffreys"].item(),
+                phase=f"{args.poe_variant}_stage1",
+                beta=beta,
+            ),
+        )
         print(
             "TriPoEVAE Stage1 batch: {}, loss: {:.4f}, recon: {:.4f}, jeffreys: {:.4f}, beta: {:.3f}".format(
                 batch_idx * loader.batch_size,
@@ -1316,6 +1428,10 @@ def _train_loop_stage1_poe(args, epoch, model, loader, optimizer, scheduler):
 
     total_loss /= len(loader)
     print("TriPoEVAE Stage1 Epoch {}: train_vae_loss={:.4f}".format(epoch, total_loss))
+    epoch_metrics = _finalize_poe_epoch_monitor(poe_epoch_monitor)
+    epoch_metrics["epoch"] = epoch
+    epoch_metrics["trainer/phase"] = f"{args.poe_variant}_stage1"
+    _wandb_log(args, epoch_metrics)
     return total_loss
 
 

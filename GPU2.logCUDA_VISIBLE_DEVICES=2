@@ -1,0 +1,2843 @@
+============================================================
+[scheduler] queue: configs/queue
+[scheduler] GPU:   2
+[scheduler] start: 2026-07-31 23:41:52 +0800
+============================================================
+
+------------------------------------------------------------
+[2026-07-31 23:41:52 +0800] START  clinictest_li__106__tcga_brca__L0__mlp_clinic_flatten.conf
+------------------------------------------------------------
+[CMD] python -u main.py --study tcga_brca --task survival --n_classes 4 --results_dir ./results --exp_group Clinictest_Li --run_name tcga_brca__L0 --type_of_path combine --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_brca/P/uni_v1 --label_file /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/datasets_csv/metadata/tcga_brca.csv --omics_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/datasets_csv/raw_rna_data/combine/brca --clinical_file /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/datasets_csv/clinical_data/tcga_brca_clinical.csv --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_brca/C/L0 --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_brca/G/scFoundation_embedding_gene_raw --num_patches 4096 --label_col survival_months --wsi_projection_dim 256 --encoding_layer_1_dim 8 --encoding_layer_2_dim 16 --encoder_dropout 0.25 --single_model_size small --k 5 --k_start -1 --k_end -1 --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_brca --which_splits 5foldcv --max_epochs 12 --lr 0.0005 --seed 1 --opt radam --reg_type L2 --batch_size 1 --bag_loss nll_surv --alpha_surv 0.5 --beta_surv 0.3 --reg 0.001 --lr_scheduler cosine --warmup_epochs 1 --selected_modalities wsi\,gene\,clinic --modality mlp_clinic_flatten --encoding_dim 1024
+[WSI] data_root_dir=/data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_brca/P/uni_v1 encoding_dim=1024
+============================================================
+RuntimeError: CPU dispatcher tracer already initlized
+cuda
+Split dir: /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_brca
+
+################# Settings ###################
+num_splits:  5
+k_start:  -1
+k_end:  -1
+task:  survival
+max_epochs:  12
+results_dir:  ./results/Clinictest_Li/tcga_brca__L0/mlp_clinic_flatten
+lr:  0.0005
+experiment:  tcga_brca
+label_file:  /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/datasets_csv/metadata/tcga_brca.csv
+clinical_file:  /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/datasets_csv/clinical_data/tcga_brca_clinical.csv
+omics_dir:  /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/datasets_csv/raw_rna_data/combine/brca
+data_root_dir:  /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_brca/P/uni_v1
+clinic_dir:  /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_brca/C/L0
+gene_dir:  /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_brca/G/scFoundation_embedding_gene_raw
+reg:  0.001
+bag_loss:  nll_surv
+seed:  1
+weighted_sample:  False
+opt:  radam
+num_patches:  4096
+dropout:  0.25
+type_of_path:  combine
+split_dir:  /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_brca
+
+[WSI filter] data_dir=/data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_brca/P/uni_v1
+[WSI filter] kept cases: 1055 | removed cases: 0
+label column: survival_months
+number of cases 1055
+number of classes: 8
+Defining datasets...
+Created train/val/test datasets for fold 0
+
+Training Fold 0!
+
+Init train/val/test splits... 
+Done!
+Training on 840 samples
+Validating on 212 samples
+Testing on 212 samples
+
+Init loss function... Done!
+
+Init Model... clinic_num_tokens inferred from data: 4
+Done!
+Total number of parameters: 166276
+Total number of trainable parameters: 166276
+
+Init Loaders... Done!
+
+Init optimizer ... /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/custom_optims/radam.py:50: UserWarning: This overload of addcmul_ is deprecated:
+	addcmul_(Number value, Tensor tensor1, Tensor tensor2)
+Consider using one of the following signatures instead:
+	addcmul_(Tensor tensor1, Tensor tensor2, *, Number value = 1) (Triggered internally at /pytorch/torch/csrc/utils/python_arg_parser.cpp:1691.)
+  exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
+batch: 0, loss: 1.399
+batch: 20, loss: 0.339
+batch: 40, loss: 0.689
+batch: 60, loss: 1.046
+batch: 80, loss: 0.338
+batch: 100, loss: 0.686
+batch: 120, loss: 0.334
+batch: 140, loss: 0.332
+batch: 160, loss: 0.325
+batch: 180, loss: 0.659
+batch: 200, loss: 0.315
+batch: 220, loss: 0.313
+batch: 240, loss: 0.299
+batch: 260, loss: 0.945
+batch: 280, loss: 0.911
+batch: 300, loss: 0.842
+batch: 320, loss: 0.194
+batch: 340, loss: 0.932
+batch: 360, loss: 0.466
+batch: 380, loss: 0.158
+batch: 400, loss: 0.239
+batch: 420, loss: 0.078
+batch: 440, loss: 0.017
+batch: 460, loss: 0.032
+batch: 480, loss: 0.097
+batch: 500, loss: 0.132
+batch: 520, loss: 0.021
+batch: 540, loss: 0.035
+batch: 560, loss: 0.058
+batch: 580, loss: 0.135
+batch: 600, loss: 0.037
+batch: 620, loss: 0.052
+batch: 640, loss: 0.131
+batch: 660, loss: 0.044
+batch: 680, loss: 0.043
+batch: 700, loss: 0.032
+batch: 720, loss: 0.070
+batch: 740, loss: 0.016
+batch: 760, loss: 0.012
+batch: 780, loss: 0.015
+batch: 800, loss: 0.102
+batch: 820, loss: 0.104
+Epoch: 0, train_loss: 0.5701, train_c_index: 0.4957
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.4171028735230343 , val_c_index: 0.49297646165527714
+batch: 0, loss: 0.021
+batch: 20, loss: 0.106
+batch: 40, loss: 0.014
+batch: 60, loss: 0.019
+batch: 80, loss: 0.028
+batch: 100, loss: 0.083
+batch: 120, loss: 0.128
+batch: 140, loss: 0.023
+batch: 160, loss: 0.029
+batch: 180, loss: 0.018
+batch: 200, loss: 0.100
+batch: 220, loss: 0.144
+batch: 240, loss: 0.018
+batch: 260, loss: 0.027
+batch: 280, loss: 0.171
+batch: 300, loss: 0.037
+batch: 320, loss: 0.012
+batch: 340, loss: 0.076
+batch: 360, loss: 2.293
+batch: 380, loss: 0.429
+batch: 400, loss: 0.113
+batch: 420, loss: 3.320
+batch: 440, loss: 0.079
+batch: 460, loss: 0.115
+batch: 480, loss: 0.089
+batch: 500, loss: 0.051
+batch: 520, loss: 0.328
+batch: 540, loss: 0.048
+batch: 560, loss: 2.871
+batch: 580, loss: 0.053
+batch: 600, loss: 0.038
+batch: 620, loss: 0.062
+batch: 640, loss: 0.029
+batch: 660, loss: 0.573
+batch: 680, loss: 0.073
+batch: 700, loss: 0.021
+batch: 720, loss: 0.182
+batch: 740, loss: 0.216
+batch: 760, loss: 0.546
+batch: 780, loss: 0.073
+batch: 800, loss: 0.116
+batch: 820, loss: 0.476
+Epoch: 1, train_loss: 0.4193, train_c_index: 0.4560
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.41873695249757115 , val_c_index: 0.6277524677296887
+batch: 0, loss: 0.254
+batch: 20, loss: 2.690
+batch: 40, loss: 0.052
+batch: 60, loss: 0.111
+batch: 80, loss: 0.041
+batch: 100, loss: 0.047
+batch: 120, loss: 0.020
+batch: 140, loss: 0.294
+batch: 160, loss: 0.032
+batch: 180, loss: 0.055
+batch: 200, loss: 1.257
+batch: 220, loss: 0.148
+batch: 240, loss: 0.051
+batch: 260, loss: 0.161
+batch: 280, loss: 0.302
+batch: 300, loss: 0.095
+batch: 320, loss: 0.338
+batch: 340, loss: 0.043
+batch: 360, loss: 0.018
+batch: 380, loss: 0.130
+batch: 400, loss: 0.027
+batch: 420, loss: 0.065
+batch: 440, loss: 0.473
+batch: 460, loss: 0.163
+batch: 480, loss: 0.070
+batch: 500, loss: 0.128
+batch: 520, loss: 0.091
+batch: 540, loss: 0.025
+batch: 560, loss: 0.012
+batch: 580, loss: 0.442
+batch: 600, loss: 0.082
+batch: 620, loss: 0.156
+batch: 640, loss: 0.049
+batch: 660, loss: 2.041
+batch: 680, loss: 0.031
+batch: 700, loss: 1.509
+batch: 720, loss: 0.365
+batch: 740, loss: 0.097
+batch: 760, loss: 0.203
+batch: 780, loss: 0.036
+batch: 800, loss: 0.411
+batch: 820, loss: 0.464
+Epoch: 2, train_loss: 0.4165, train_c_index: 0.4765
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.41169393911764446 , val_c_index: 0.6497722095671982
+batch: 0, loss: 0.015
+batch: 20, loss: 0.017
+batch: 40, loss: 0.018
+batch: 60, loss: 0.056
+batch: 80, loss: 0.539
+batch: 100, loss: 0.027
+batch: 120, loss: 0.176
+batch: 140, loss: 0.377
+batch: 160, loss: 2.845
+batch: 180, loss: 0.053
+batch: 200, loss: 0.034
+batch: 220, loss: 0.161
+batch: 240, loss: 0.082
+batch: 260, loss: 0.016
+batch: 280, loss: 0.092
+batch: 300, loss: 0.118
+batch: 320, loss: 0.036
+batch: 340, loss: 0.329
+batch: 360, loss: 0.053
+batch: 380, loss: 0.254
+batch: 400, loss: 0.026
+batch: 420, loss: 0.057
+batch: 440, loss: 0.026
+batch: 460, loss: 0.078
+batch: 480, loss: 0.238
+batch: 500, loss: 0.501
+batch: 520, loss: 0.145
+batch: 540, loss: 0.145
+batch: 560, loss: 0.232
+batch: 580, loss: 0.168
+batch: 600, loss: 0.051
+batch: 620, loss: 0.029
+batch: 640, loss: 0.374
+batch: 660, loss: 0.049
+batch: 680, loss: 0.112
+batch: 700, loss: 0.079
+batch: 720, loss: 0.021
+batch: 740, loss: 0.090
+batch: 760, loss: 0.084
+batch: 780, loss: 0.183
+batch: 800, loss: 2.479
+batch: 820, loss: 1.731
+Epoch: 3, train_loss: 0.4107, train_c_index: 0.5544
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.4184124334451725 , val_c_index: 0.6539483675018982
+batch: 0, loss: 2.495
+batch: 20, loss: 0.169
+batch: 40, loss: 0.137
+batch: 60, loss: 0.032
+batch: 80, loss: 0.090
+batch: 100, loss: 0.043
+batch: 120, loss: 0.171
+batch: 140, loss: 0.066
+batch: 160, loss: 0.058
+batch: 180, loss: 0.181
+batch: 200, loss: 0.080
+batch: 220, loss: 0.064
+batch: 240, loss: 0.080
+batch: 260, loss: 0.013
+batch: 280, loss: 0.259
+batch: 300, loss: 0.018
+batch: 320, loss: 0.052
+batch: 340, loss: 0.019
+batch: 360, loss: 0.082
+batch: 380, loss: 0.107
+batch: 400, loss: 0.066
+batch: 420, loss: 0.050
+batch: 440, loss: 0.021
+batch: 460, loss: 0.374
+batch: 480, loss: 0.038
+batch: 500, loss: 0.171
+batch: 520, loss: 1.929
+batch: 540, loss: 0.042
+batch: 560, loss: 1.705
+batch: 580, loss: 0.031
+batch: 600, loss: 1.793
+batch: 620, loss: 0.169
+batch: 640, loss: 0.019
+batch: 660, loss: 0.031
+batch: 680, loss: 0.065
+batch: 700, loss: 2.846
+batch: 720, loss: 2.944
+batch: 740, loss: 2.978
+batch: 760, loss: 0.164
+batch: 780, loss: 0.054
+batch: 800, loss: 1.879
+batch: 820, loss: 0.068
+Epoch: 4, train_loss: 0.4054, train_c_index: 0.5603
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.40004847440780755 , val_c_index: 0.6869779802581625
+batch: 0, loss: 3.144
+batch: 20, loss: 0.304
+batch: 40, loss: 1.209
+batch: 60, loss: 0.011
+batch: 80, loss: 0.470
+batch: 100, loss: 0.435
+batch: 120, loss: 0.080
+batch: 140, loss: 0.225
+batch: 160, loss: 0.456
+batch: 180, loss: 3.563
+batch: 200, loss: 0.059
+batch: 220, loss: 0.064
+batch: 240, loss: 0.477
+batch: 260, loss: 0.469
+batch: 280, loss: 0.455
+batch: 300, loss: 0.698
+batch: 320, loss: 0.460
+batch: 340, loss: 0.057
+batch: 360, loss: 0.050
+batch: 380, loss: 0.477
+batch: 400, loss: 0.217
+batch: 420, loss: 0.081
+batch: 440, loss: 0.011
+batch: 460, loss: 0.474
+batch: 480, loss: 0.011
+batch: 500, loss: 0.078
+batch: 520, loss: 2.257
+batch: 540, loss: 0.074
+batch: 560, loss: 0.179
+batch: 580, loss: 0.034
+batch: 600, loss: 0.049
+batch: 620, loss: 0.016
+batch: 640, loss: 0.025
+batch: 660, loss: 0.187
+batch: 680, loss: 0.173
+batch: 700, loss: 0.320
+batch: 720, loss: 0.062
+batch: 740, loss: 0.154
+batch: 760, loss: 0.141
+batch: 780, loss: 0.082
+batch: 800, loss: 1.522
+batch: 820, loss: 0.073
+Epoch: 5, train_loss: 0.3999, train_c_index: 0.5878
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.3981209177137265 , val_c_index: 0.6892558845861807
+batch: 0, loss: 0.089
+batch: 20, loss: 0.148
+batch: 40, loss: 0.085
+batch: 60, loss: 0.173
+batch: 80, loss: 0.311
+batch: 100, loss: 2.054
+batch: 120, loss: 0.043
+batch: 140, loss: 0.028
+batch: 160, loss: 0.204
+batch: 180, loss: 0.384
+batch: 200, loss: 0.059
+batch: 220, loss: 0.296
+batch: 240, loss: 2.886
+batch: 260, loss: 0.061
+batch: 280, loss: 0.025
+batch: 300, loss: 0.123
+batch: 320, loss: 0.386
+batch: 340, loss: 0.036
+batch: 360, loss: 0.025
+batch: 380, loss: 2.289
+batch: 400, loss: 0.112
+batch: 420, loss: 0.040
+batch: 440, loss: 0.031
+batch: 460, loss: 0.314
+batch: 480, loss: 0.316
+batch: 500, loss: 0.027
+batch: 520, loss: 0.011
+batch: 540, loss: 0.025
+batch: 560, loss: 0.006
+batch: 580, loss: 0.146
+batch: 600, loss: 0.226
+batch: 620, loss: 0.089
+batch: 640, loss: 0.028
+batch: 660, loss: 0.345
+batch: 680, loss: 0.069
+batch: 700, loss: 0.081
+batch: 720, loss: 0.423
+batch: 740, loss: 0.433
+batch: 760, loss: 0.091
+batch: 780, loss: 0.079
+batch: 800, loss: 0.201
+batch: 820, loss: 0.093
+Epoch: 6, train_loss: 0.3950, train_c_index: 0.6289
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.40088426905139435 , val_c_index: 0.6938116932422171
+batch: 0, loss: 0.046
+batch: 20, loss: 0.183
+batch: 40, loss: 1.472
+batch: 60, loss: 0.047
+batch: 80, loss: 0.362
+batch: 100, loss: 0.018
+batch: 120, loss: 0.017
+batch: 140, loss: 0.113
+batch: 160, loss: 0.028
+batch: 180, loss: 0.100
+batch: 200, loss: 0.072
+batch: 220, loss: 0.022
+batch: 240, loss: 0.014
+batch: 260, loss: 2.197
+batch: 280, loss: 0.388
+batch: 300, loss: 2.570
+batch: 320, loss: 0.032
+batch: 340, loss: 0.136
+batch: 360, loss: 0.055
+batch: 380, loss: 0.496
+batch: 400, loss: 0.015
+batch: 420, loss: 0.085
+batch: 440, loss: 0.076
+batch: 460, loss: 0.513
+batch: 480, loss: 0.071
+batch: 500, loss: 0.080
+batch: 520, loss: 1.668
+batch: 540, loss: 0.410
+batch: 560, loss: 0.100
+batch: 580, loss: 0.026
+batch: 600, loss: 0.044
+batch: 620, loss: 0.134
+batch: 640, loss: 2.799
+batch: 660, loss: 0.412
+batch: 680, loss: 0.447
+batch: 700, loss: 0.319
+batch: 720, loss: 0.022
+batch: 740, loss: 0.050
+batch: 760, loss: 0.101
+batch: 780, loss: 0.017
+batch: 800, loss: 0.058
+batch: 820, loss: 0.008
+Epoch: 7, train_loss: 0.3897, train_c_index: 0.6414
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.4062206249130573 , val_c_index: 0.7063401670463174
+batch: 0, loss: 0.016
+batch: 20, loss: 0.248
+batch: 40, loss: 0.370
+batch: 60, loss: 3.316
+batch: 80, loss: 0.041
+batch: 100, loss: 0.292
+batch: 120, loss: 0.030
+batch: 140, loss: 0.011
+batch: 160, loss: 0.016
+batch: 180, loss: 2.689
+batch: 200, loss: 0.010
+batch: 220, loss: 0.148
+batch: 240, loss: 0.158
+batch: 260, loss: 0.086
+batch: 280, loss: 1.449
+batch: 300, loss: 2.094
+batch: 320, loss: 0.072
+batch: 340, loss: 0.030
+batch: 360, loss: 0.079
+batch: 380, loss: 0.078
+batch: 400, loss: 0.030
+batch: 420, loss: 0.123
+batch: 440, loss: 0.063
+batch: 460, loss: 0.052
+batch: 480, loss: 0.052
+batch: 500, loss: 0.174
+batch: 520, loss: 0.035
+batch: 540, loss: 0.094
+batch: 560, loss: 0.020
+batch: 580, loss: 0.456
+batch: 600, loss: 0.131
+batch: 620, loss: 0.157
+batch: 640, loss: 0.038
+batch: 660, loss: 1.982
+batch: 680, loss: 0.089
+batch: 700, loss: 0.025
+batch: 720, loss: 0.080
+batch: 740, loss: 0.028
+batch: 760, loss: 0.057
+batch: 780, loss: 0.048
+batch: 800, loss: 0.034
+batch: 820, loss: 0.016
+Epoch: 8, train_loss: 0.3854, train_c_index: 0.6726
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.3981723053521424 , val_c_index: 0.7116552771450265
+batch: 0, loss: 0.022
+batch: 20, loss: 0.291
+batch: 40, loss: 2.289
+batch: 60, loss: 0.230
+batch: 80, loss: 0.255
+batch: 100, loss: 0.163
+batch: 120, loss: 0.074
+batch: 140, loss: 0.041
+batch: 160, loss: 0.033
+batch: 180, loss: 0.090
+batch: 200, loss: 0.055
+batch: 220, loss: 0.109
+batch: 240, loss: 0.059
+batch: 260, loss: 0.032
+batch: 280, loss: 0.090
+batch: 300, loss: 0.093
+batch: 320, loss: 0.071
+batch: 340, loss: 0.128
+batch: 360, loss: 0.090
+batch: 380, loss: 2.627
+batch: 400, loss: 0.031
+batch: 420, loss: 0.227
+batch: 440, loss: 0.026
+batch: 460, loss: 0.345
+batch: 480, loss: 0.068
+batch: 500, loss: 0.072
+batch: 520, loss: 1.498
+batch: 540, loss: 0.077
+batch: 560, loss: 0.370
+batch: 580, loss: 3.105
+batch: 600, loss: 0.022
+batch: 620, loss: 0.067
+batch: 640, loss: 3.374
+batch: 660, loss: 2.506
+batch: 680, loss: 0.107
+batch: 700, loss: 0.119
+batch: 720, loss: 0.040
+batch: 740, loss: 0.020
+batch: 760, loss: 0.151
+batch: 780, loss: 0.384
+batch: 800, loss: 0.014
+batch: 820, loss: 0.036
+Epoch: 9, train_loss: 0.3830, train_c_index: 0.6870
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.4029376478184823 , val_c_index: 0.7033029612756264
+batch: 0, loss: 0.324
+batch: 20, loss: 0.024
+batch: 40, loss: 0.070
+batch: 60, loss: 0.325
+batch: 80, loss: 0.048
+batch: 100, loss: 0.217
+batch: 120, loss: 1.316
+batch: 140, loss: 0.040
+batch: 160, loss: 0.017
+batch: 180, loss: 0.024
+batch: 200, loss: 0.055
+batch: 220, loss: 0.057
+batch: 240, loss: 3.112
+batch: 260, loss: 0.059
+batch: 280, loss: 0.448
+batch: 300, loss: 1.517
+batch: 320, loss: 0.022
+batch: 340, loss: 0.078
+batch: 360, loss: 0.138
+batch: 380, loss: 0.028
+batch: 400, loss: 0.088
+batch: 420, loss: 0.371
+batch: 440, loss: 0.015
+batch: 460, loss: 0.332
+batch: 480, loss: 0.020
+batch: 500, loss: 0.015
+batch: 520, loss: 1.764
+batch: 540, loss: 0.055
+batch: 560, loss: 0.176
+batch: 580, loss: 0.024
+batch: 600, loss: 0.130
+batch: 620, loss: 0.220
+batch: 640, loss: 0.023
+batch: 660, loss: 0.017
+batch: 680, loss: 0.017
+batch: 700, loss: 0.202
+batch: 720, loss: 0.063
+batch: 740, loss: 2.412
+batch: 760, loss: 0.406
+batch: 780, loss: 0.112
+batch: 800, loss: 0.086
+batch: 820, loss: 0.013
+Epoch: 10, train_loss: 0.3818, train_c_index: 0.6680
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.39989059346394157 , val_c_index: 0.701784358390281
+Epoch: 10 is the best.
+batch: 0, loss: 0.018
+batch: 20, loss: 0.030
+batch: 40, loss: 0.134
+batch: 60, loss: 0.476
+batch: 80, loss: 0.280
+batch: 100, loss: 0.055
+batch: 120, loss: 0.026
+batch: 140, loss: 0.054
+batch: 160, loss: 2.205
+batch: 180, loss: 0.015
+batch: 200, loss: 0.512
+batch: 220, loss: 0.047
+batch: 240, loss: 0.016
+batch: 260, loss: 0.166
+batch: 280, loss: 0.110
+batch: 300, loss: 0.014
+batch: 320, loss: 0.421
+batch: 340, loss: 0.127
+batch: 360, loss: 2.990
+batch: 380, loss: 0.088
+batch: 400, loss: 0.100
+batch: 420, loss: 0.191
+batch: 440, loss: 2.264
+batch: 460, loss: 0.056
+batch: 480, loss: 0.067
+batch: 500, loss: 0.118
+batch: 520, loss: 0.015
+batch: 540, loss: 0.113
+batch: 560, loss: 0.201
+batch: 580, loss: 0.081
+batch: 600, loss: 0.021
+batch: 620, loss: 0.143
+batch: 640, loss: 0.010
+batch: 660, loss: 3.282
+batch: 680, loss: 0.318
+batch: 700, loss: 0.188
+batch: 720, loss: 0.266
+batch: 740, loss: 0.075
+batch: 760, loss: 0.030
+batch: 780, loss: 0.059
+batch: 800, loss: 0.244
+batch: 820, loss: 0.085
+Epoch: 11, train_loss: 0.3819, train_c_index: 0.6804
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.4000259552344258 , val_c_index: 0.701784358390281
+Epoch: 11 is the best.
+Start testing
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Final test c-index: 0.7018
+Saving results...
+Defining datasets...
+Created train/val/test datasets for fold 1
+
+Training Fold 1!
+
+Init train/val/test splits... 
+Done!
+Training on 842 samples
+Validating on 210 samples
+Testing on 210 samples
+
+Init loss function... Done!
+
+Init Model... clinic_num_tokens inferred from data: 4
+Done!
+Total number of parameters: 166276
+Total number of trainable parameters: 166276
+
+Init Loaders... Done!
+
+Init optimizer ... batch: 0, loss: 0.347
+batch: 20, loss: 0.351
+batch: 40, loss: 0.350
+batch: 60, loss: 1.047
+batch: 80, loss: 0.700
+batch: 100, loss: 1.038
+batch: 120, loss: 0.346
+batch: 140, loss: 0.341
+batch: 160, loss: 0.680
+batch: 180, loss: 1.012
+batch: 200, loss: 1.000
+batch: 220, loss: 1.352
+batch: 240, loss: 0.307
+batch: 260, loss: 0.292
+batch: 280, loss: 1.222
+batch: 300, loss: 0.524
+batch: 320, loss: 0.461
+batch: 340, loss: 0.153
+batch: 360, loss: 0.088
+batch: 380, loss: 0.166
+batch: 400, loss: 0.114
+batch: 420, loss: 1.677
+batch: 440, loss: 0.304
+batch: 460, loss: 0.145
+batch: 480, loss: 0.029
+batch: 500, loss: 0.038
+batch: 520, loss: 0.116
+batch: 540, loss: 2.242
+batch: 560, loss: 0.017
+batch: 580, loss: 0.145
+batch: 600, loss: 0.097
+batch: 620, loss: 1.384
+batch: 640, loss: 0.514
+batch: 660, loss: 0.093
+batch: 680, loss: 0.133
+batch: 700, loss: 0.175
+batch: 720, loss: 0.117
+batch: 740, loss: 0.298
+batch: 760, loss: 0.540
+batch: 780, loss: 0.499
+batch: 800, loss: 0.046
+batch: 820, loss: 0.095
+batch: 840, loss: 0.055
+Epoch: 0, train_loss: 0.5905, train_c_index: 0.4789
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.42892074680754116 , val_c_index: 0.5029839612085043
+batch: 0, loss: 0.368
+batch: 20, loss: 0.034
+batch: 40, loss: 0.014
+batch: 60, loss: 3.342
+batch: 80, loss: 0.208
+batch: 100, loss: 0.036
+batch: 120, loss: 0.081
+batch: 140, loss: 1.826
+batch: 160, loss: 0.265
+batch: 180, loss: 0.010
+batch: 200, loss: 0.355
+batch: 220, loss: 0.336
+batch: 240, loss: 0.047
+batch: 260, loss: 0.217
+batch: 280, loss: 1.738
+batch: 300, loss: 0.256
+batch: 320, loss: 0.108
+batch: 340, loss: 2.858
+batch: 360, loss: 0.465
+batch: 380, loss: 0.165
+batch: 400, loss: 0.022
+batch: 420, loss: 0.163
+batch: 440, loss: 0.049
+batch: 460, loss: 0.355
+batch: 480, loss: 0.066
+batch: 500, loss: 0.160
+batch: 520, loss: 0.146
+batch: 540, loss: 0.144
+batch: 560, loss: 0.030
+batch: 580, loss: 0.513
+batch: 600, loss: 0.217
+batch: 620, loss: 0.158
+batch: 640, loss: 0.183
+batch: 660, loss: 0.113
+batch: 680, loss: 2.369
+batch: 700, loss: 0.130
+batch: 720, loss: 0.038
+batch: 740, loss: 0.048
+batch: 760, loss: 0.044
+batch: 780, loss: 2.513
+batch: 800, loss: 1.118
+batch: 820, loss: 0.035
+batch: 840, loss: 0.036
+Epoch: 1, train_loss: 0.4071, train_c_index: 0.4938
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.4837993166719874 , val_c_index: 0.5440134278254383
+batch: 0, loss: 0.038
+batch: 20, loss: 0.491
+batch: 40, loss: 0.036
+batch: 60, loss: 0.112
+batch: 80, loss: 0.019
+batch: 100, loss: 0.033
+batch: 120, loss: 2.613
+batch: 140, loss: 0.246
+batch: 160, loss: 2.005
+batch: 180, loss: 0.266
+batch: 200, loss: 0.144
+batch: 220, loss: 0.169
+batch: 240, loss: 0.015
+batch: 260, loss: 0.010
+batch: 280, loss: 0.038
+batch: 300, loss: 0.060
+batch: 320, loss: 0.055
+batch: 340, loss: 1.524
+batch: 360, loss: 0.034
+batch: 380, loss: 0.047
+batch: 400, loss: 0.193
+batch: 420, loss: 0.042
+batch: 440, loss: 0.078
+batch: 460, loss: 0.367
+batch: 480, loss: 0.017
+batch: 500, loss: 0.027
+batch: 520, loss: 0.022
+batch: 540, loss: 0.088
+batch: 560, loss: 2.991
+batch: 580, loss: 2.190
+batch: 600, loss: 0.036
+batch: 620, loss: 1.294
+batch: 640, loss: 1.284
+batch: 660, loss: 0.116
+batch: 680, loss: 0.214
+batch: 700, loss: 0.489
+batch: 720, loss: 0.021
+batch: 740, loss: 2.505
+batch: 760, loss: 0.103
+batch: 780, loss: 0.097
+batch: 800, loss: 0.548
+batch: 820, loss: 0.032
+batch: 840, loss: 0.102
+Epoch: 2, train_loss: 0.4089, train_c_index: 0.5271
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.4302745455255111 , val_c_index: 0.5634091756807161
+batch: 0, loss: 0.066
+batch: 20, loss: 2.448
+batch: 40, loss: 2.792
+batch: 60, loss: 0.068
+batch: 80, loss: 0.094
+batch: 100, loss: 0.071
+batch: 120, loss: 0.070
+batch: 140, loss: 0.019
+batch: 160, loss: 0.008
+batch: 180, loss: 0.119
+batch: 200, loss: 0.104
+batch: 220, loss: 0.024
+batch: 240, loss: 0.042
+batch: 260, loss: 0.037
+batch: 280, loss: 0.165
+batch: 300, loss: 0.026
+batch: 320, loss: 0.017
+batch: 340, loss: 2.441
+batch: 360, loss: 0.029
+batch: 380, loss: 2.372
+batch: 400, loss: 1.219
+batch: 420, loss: 0.425
+batch: 440, loss: 0.140
+batch: 460, loss: 0.299
+batch: 480, loss: 0.044
+batch: 500, loss: 0.090
+batch: 520, loss: 0.120
+batch: 540, loss: 0.394
+batch: 560, loss: 0.047
+batch: 580, loss: 0.120
+batch: 600, loss: 0.071
+batch: 620, loss: 0.026
+batch: 640, loss: 0.340
+batch: 660, loss: 0.061
+batch: 680, loss: 1.584
+batch: 700, loss: 0.014
+batch: 720, loss: 0.040
+batch: 740, loss: 0.106
+batch: 760, loss: 0.031
+batch: 780, loss: 0.400
+batch: 800, loss: 1.845
+batch: 820, loss: 0.052
+batch: 840, loss: 1.265
+Epoch: 3, train_loss: 0.4023, train_c_index: 0.5674
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.43112886405239503 , val_c_index: 0.5753450205147334
+batch: 0, loss: 0.371
+batch: 20, loss: 2.038
+batch: 40, loss: 0.030
+batch: 60, loss: 1.117
+batch: 80, loss: 0.035
+batch: 100, loss: 0.127
+batch: 120, loss: 0.062
+batch: 140, loss: 2.473
+batch: 160, loss: 0.016
+batch: 180, loss: 2.642
+batch: 200, loss: 2.053
+batch: 220, loss: 0.137
+batch: 240, loss: 1.453
+batch: 260, loss: 0.280
+batch: 280, loss: 0.288
+batch: 300, loss: 0.064
+batch: 320, loss: 0.072
+batch: 340, loss: 0.035
+batch: 360, loss: 0.065
+batch: 380, loss: 0.031
+batch: 400, loss: 3.425
+batch: 420, loss: 0.399
+batch: 440, loss: 0.234
+batch: 460, loss: 0.083
+batch: 480, loss: 0.367
+batch: 500, loss: 0.117
+batch: 520, loss: 0.019
+batch: 540, loss: 0.014
+batch: 560, loss: 0.173
+batch: 580, loss: 2.149
+batch: 600, loss: 0.084
+batch: 620, loss: 0.050
+batch: 640, loss: 0.106
+batch: 660, loss: 0.007
+batch: 680, loss: 0.122
+batch: 700, loss: 0.012
+batch: 720, loss: 0.043
+batch: 740, loss: 0.025
+batch: 760, loss: 0.083
+batch: 780, loss: 0.161
+batch: 800, loss: 0.182
+batch: 820, loss: 0.139
+batch: 840, loss: 3.170
+Epoch: 4, train_loss: 0.3955, train_c_index: 0.5896
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.43147527630041754 , val_c_index: 0.5682581126445356
+batch: 0, loss: 0.171
+batch: 20, loss: 0.115
+batch: 40, loss: 0.037
+batch: 60, loss: 0.049
+batch: 80, loss: 0.089
+batch: 100, loss: 0.018
+batch: 120, loss: 0.185
+batch: 140, loss: 0.069
+batch: 160, loss: 0.356
+batch: 180, loss: 0.104
+batch: 200, loss: 0.019
+batch: 220, loss: 2.391
+batch: 240, loss: 2.095
+batch: 260, loss: 1.974
+batch: 280, loss: 0.068
+batch: 300, loss: 0.016
+batch: 320, loss: 2.645
+batch: 340, loss: 0.124
+batch: 360, loss: 0.506
+batch: 380, loss: 0.799
+batch: 400, loss: 0.067
+batch: 420, loss: 0.033
+batch: 440, loss: 0.092
+batch: 460, loss: 0.132
+batch: 480, loss: 2.854
+batch: 500, loss: 2.189
+batch: 520, loss: 0.532
+batch: 540, loss: 0.056
+batch: 560, loss: 0.060
+batch: 580, loss: 0.075
+batch: 600, loss: 0.116
+batch: 620, loss: 0.026
+batch: 640, loss: 0.053
+batch: 660, loss: 0.087
+batch: 680, loss: 0.082
+batch: 700, loss: 1.949
+batch: 720, loss: 0.071
+batch: 740, loss: 0.074
+batch: 760, loss: 0.146
+batch: 780, loss: 0.036
+batch: 800, loss: 0.390
+batch: 820, loss: 0.048
+batch: 840, loss: 0.043
+Epoch: 5, train_loss: 0.3883, train_c_index: 0.6218
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.43059782854370066 , val_c_index: 0.5701230883998508
+batch: 0, loss: 0.060
+batch: 20, loss: 0.040
+batch: 40, loss: 0.077
+batch: 60, loss: 2.672
+batch: 80, loss: 0.167
+batch: 100, loss: 1.680
+batch: 120, loss: 0.219
+batch: 140, loss: 0.069
+batch: 160, loss: 0.089
+batch: 180, loss: 0.037
+batch: 200, loss: 0.046
+batch: 220, loss: 0.102
+batch: 240, loss: 0.089
+batch: 260, loss: 1.326
+batch: 280, loss: 0.029
+batch: 300, loss: 0.031
+batch: 320, loss: 0.372
+batch: 340, loss: 0.125
+batch: 360, loss: 0.166
+batch: 380, loss: 0.039
+batch: 400, loss: 0.432
+batch: 420, loss: 0.071
+batch: 440, loss: 0.514
+batch: 460, loss: 0.080
+batch: 480, loss: 0.416
+batch: 500, loss: 0.028
+batch: 520, loss: 0.037
+batch: 540, loss: 0.008
+batch: 560, loss: 4.236
+batch: 580, loss: 0.024
+batch: 600, loss: 0.111
+batch: 620, loss: 1.408
+batch: 640, loss: 0.025
+batch: 660, loss: 0.016
+batch: 680, loss: 0.021
+batch: 700, loss: 0.004
+batch: 720, loss: 0.117
+batch: 740, loss: 0.082
+batch: 760, loss: 0.397
+batch: 780, loss: 2.468
+batch: 800, loss: 0.134
+batch: 820, loss: 1.797
+batch: 840, loss: 0.098
+Epoch: 6, train_loss: 0.3828, train_c_index: 0.6500
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.434699819773613 , val_c_index: 0.5708690787019769
+batch: 0, loss: 0.097
+batch: 20, loss: 0.080
+batch: 40, loss: 0.089
+batch: 60, loss: 0.141
+batch: 80, loss: 0.184
+batch: 100, loss: 1.957
+batch: 120, loss: 0.016
+batch: 140, loss: 0.009
+batch: 160, loss: 0.164
+batch: 180, loss: 0.341
+batch: 200, loss: 1.762
+batch: 220, loss: 0.113
+batch: 240, loss: 3.593
+batch: 260, loss: 0.176
+batch: 280, loss: 0.048
+batch: 300, loss: 0.017
+batch: 320, loss: 2.505
+batch: 340, loss: 0.059
+batch: 360, loss: 0.066
+batch: 380, loss: 2.066
+batch: 400, loss: 0.154
+batch: 420, loss: 4.586
+batch: 440, loss: 0.013
+batch: 460, loss: 0.433
+batch: 480, loss: 0.040
+batch: 500, loss: 0.014
+batch: 520, loss: 0.468
+batch: 540, loss: 0.018
+batch: 560, loss: 0.025
+batch: 580, loss: 0.033
+batch: 600, loss: 0.083
+batch: 620, loss: 0.481
+batch: 640, loss: 0.078
+batch: 660, loss: 0.028
+batch: 680, loss: 1.835
+batch: 700, loss: 0.016
+batch: 720, loss: 0.050
+batch: 740, loss: 0.174
+batch: 760, loss: 2.030
+batch: 780, loss: 0.140
+batch: 800, loss: 0.119
+batch: 820, loss: 0.063
+batch: 840, loss: 1.924
+Epoch: 7, train_loss: 0.3792, train_c_index: 0.6438
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.44012876578296223 , val_c_index: 0.5712420738530399
+batch: 0, loss: 0.014
+batch: 20, loss: 0.046
+batch: 40, loss: 0.027
+batch: 60, loss: 0.039
+batch: 80, loss: 0.197
+batch: 100, loss: 0.106
+batch: 120, loss: 1.630
+batch: 140, loss: 0.007
+batch: 160, loss: 0.039
+batch: 180, loss: 0.073
+batch: 200, loss: 0.014
+batch: 220, loss: 0.199
+batch: 240, loss: 0.035
+batch: 260, loss: 0.036
+batch: 280, loss: 0.449
+batch: 300, loss: 0.092
+batch: 320, loss: 1.888
+batch: 340, loss: 0.255
+batch: 360, loss: 0.062
+batch: 380, loss: 1.241
+batch: 400, loss: 0.508
+batch: 420, loss: 0.486
+batch: 440, loss: 1.103
+batch: 460, loss: 0.056
+batch: 480, loss: 0.104
+batch: 500, loss: 0.019
+batch: 520, loss: 2.250
+batch: 540, loss: 0.014
+batch: 560, loss: 2.426
+batch: 580, loss: 0.025
+batch: 600, loss: 2.754
+batch: 620, loss: 0.025
+batch: 640, loss: 0.039
+batch: 660, loss: 0.152
+batch: 680, loss: 0.030
+batch: 700, loss: 0.021
+batch: 720, loss: 0.034
+batch: 740, loss: 0.145
+batch: 760, loss: 0.020
+batch: 780, loss: 0.044
+batch: 800, loss: 0.115
+batch: 820, loss: 2.040
+batch: 840, loss: 0.093
+Epoch: 8, train_loss: 0.3761, train_c_index: 0.6685
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.44555476671749994 , val_c_index: 0.5738530399104812
+batch: 0, loss: 0.472
+batch: 20, loss: 0.009
+batch: 40, loss: 0.063
+batch: 60, loss: 0.027
+batch: 80, loss: 0.132
+batch: 100, loss: 1.666
+batch: 120, loss: 1.813
+batch: 140, loss: 0.236
+batch: 160, loss: 0.024
+batch: 180, loss: 0.016
+batch: 200, loss: 0.062
+batch: 220, loss: 0.014
+batch: 240, loss: 0.043
+batch: 260, loss: 0.424
+batch: 280, loss: 0.522
+batch: 300, loss: 0.129
+batch: 320, loss: 0.047
+batch: 340, loss: 0.018
+batch: 360, loss: 0.187
+batch: 380, loss: 0.100
+batch: 400, loss: 0.028
+batch: 420, loss: 2.181
+batch: 440, loss: 1.135
+batch: 460, loss: 0.011
+batch: 480, loss: 0.020
+batch: 500, loss: 0.386
+batch: 520, loss: 0.009
+batch: 540, loss: 0.036
+batch: 560, loss: 0.018
+batch: 580, loss: 2.371
+batch: 600, loss: 0.072
+batch: 620, loss: 0.102
+batch: 640, loss: 0.025
+batch: 660, loss: 0.180
+batch: 680, loss: 0.180
+batch: 700, loss: 0.026
+batch: 720, loss: 0.047
+batch: 740, loss: 0.093
+batch: 760, loss: 0.015
+batch: 780, loss: 0.222
+batch: 800, loss: 0.024
+batch: 820, loss: 0.059
+batch: 840, loss: 0.085
+Epoch: 9, train_loss: 0.3695, train_c_index: 0.6930
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.44723958109638523 , val_c_index: 0.5749720253636703
+batch: 0, loss: 0.067
+batch: 20, loss: 0.446
+batch: 40, loss: 0.011
+batch: 60, loss: 0.071
+batch: 80, loss: 1.736
+batch: 100, loss: 1.223
+batch: 120, loss: 0.182
+batch: 140, loss: 0.102
+batch: 160, loss: 0.039
+batch: 180, loss: 4.003
+batch: 200, loss: 0.154
+batch: 220, loss: 0.021
+batch: 240, loss: 0.200
+batch: 260, loss: 0.037
+batch: 280, loss: 1.096
+batch: 300, loss: 1.118
+batch: 320, loss: 2.329
+batch: 340, loss: 0.156
+batch: 360, loss: 0.019
+batch: 380, loss: 0.030
+batch: 400, loss: 0.030
+batch: 420, loss: 0.037
+batch: 440, loss: 0.103
+batch: 460, loss: 0.243
+batch: 480, loss: 0.437
+batch: 500, loss: 0.051
+batch: 520, loss: 0.028
+batch: 540, loss: 0.020
+batch: 560, loss: 0.032
+batch: 580, loss: 0.406
+batch: 600, loss: 0.095
+batch: 620, loss: 0.113
+batch: 640, loss: 0.163
+batch: 660, loss: 0.017
+batch: 680, loss: 0.015
+batch: 700, loss: 2.818
+batch: 720, loss: 0.025
+batch: 740, loss: 0.024
+batch: 760, loss: 0.483
+batch: 780, loss: 0.079
+batch: 800, loss: 0.114
+batch: 820, loss: 0.010
+batch: 840, loss: 0.018
+Epoch: 10, train_loss: 0.3692, train_c_index: 0.6777
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.44617956605340753 , val_c_index: 0.5753450205147334
+Epoch: 10 is the best.
+batch: 0, loss: 0.017
+batch: 20, loss: 0.012
+batch: 40, loss: 0.004
+batch: 60, loss: 0.015
+batch: 80, loss: 0.013
+batch: 100, loss: 0.116
+batch: 120, loss: 0.043
+batch: 140, loss: 2.432
+batch: 160, loss: 0.013
+batch: 180, loss: 0.035
+batch: 200, loss: 0.043
+batch: 220, loss: 0.017
+batch: 240, loss: 0.017
+batch: 260, loss: 0.062
+batch: 280, loss: 0.149
+batch: 300, loss: 0.048
+batch: 320, loss: 0.162
+batch: 340, loss: 0.451
+batch: 360, loss: 0.285
+batch: 380, loss: 0.012
+batch: 400, loss: 0.402
+batch: 420, loss: 0.405
+batch: 440, loss: 0.063
+batch: 460, loss: 0.058
+batch: 480, loss: 0.406
+batch: 500, loss: 0.031
+batch: 520, loss: 0.020
+batch: 540, loss: 0.049
+batch: 560, loss: 2.305
+batch: 580, loss: 1.191
+batch: 600, loss: 0.116
+batch: 620, loss: 0.380
+batch: 640, loss: 0.013
+batch: 660, loss: 0.411
+batch: 680, loss: 0.148
+batch: 700, loss: 0.143
+batch: 720, loss: 0.142
+batch: 740, loss: 0.276
+batch: 760, loss: 0.361
+batch: 780, loss: 0.021
+batch: 800, loss: 0.018
+batch: 820, loss: 1.822
+batch: 840, loss: 2.272
+Epoch: 11, train_loss: 0.3650, train_c_index: 0.6963
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.44609265473360815 , val_c_index: 0.5749720253636703
+Start testing
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Final test c-index: 0.5753
+Saving results...
+Defining datasets...
+Created train/val/test datasets for fold 2
+
+Training Fold 2!
+
+Init train/val/test splits... 
+Done!
+Training on 842 samples
+Validating on 210 samples
+Testing on 210 samples
+
+Init loss function... Done!
+
+Init Model... clinic_num_tokens inferred from data: 4
+Done!
+Total number of parameters: 166276
+Total number of trainable parameters: 166276
+
+Init Loaders... Done!
+
+Init optimizer ... batch: 0, loss: 0.351
+batch: 20, loss: 0.349
+batch: 40, loss: 1.027
+batch: 60, loss: 0.350
+batch: 80, loss: 0.350
+batch: 100, loss: 0.349
+batch: 120, loss: 1.017
+batch: 140, loss: 1.358
+batch: 160, loss: 1.345
+batch: 180, loss: 2.039
+batch: 200, loss: 1.330
+batch: 220, loss: 1.326
+batch: 240, loss: 0.631
+batch: 260, loss: 1.282
+batch: 280, loss: 0.283
+batch: 300, loss: 0.856
+batch: 320, loss: 0.985
+batch: 340, loss: 0.438
+batch: 360, loss: 0.352
+batch: 380, loss: 0.282
+batch: 400, loss: 0.198
+batch: 420, loss: 0.079
+batch: 440, loss: 0.071
+batch: 460, loss: 0.118
+batch: 480, loss: 0.429
+batch: 500, loss: 0.178
+batch: 520, loss: 0.224
+batch: 540, loss: 2.202
+batch: 560, loss: 1.564
+batch: 580, loss: 0.504
+batch: 600, loss: 0.207
+batch: 620, loss: 0.017
+batch: 640, loss: 0.018
+batch: 660, loss: 0.095
+batch: 680, loss: 0.020
+batch: 700, loss: 0.176
+batch: 720, loss: 0.040
+batch: 740, loss: 0.205
+batch: 760, loss: 0.075
+batch: 780, loss: 0.051
+batch: 800, loss: 0.124
+batch: 820, loss: 0.166
+batch: 840, loss: 0.397
+Epoch: 0, train_loss: 0.5882, train_c_index: 0.4975
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.390510691595929 , val_c_index: 0.5180161085205596
+batch: 0, loss: 0.034
+batch: 20, loss: 0.059
+batch: 40, loss: 0.065
+batch: 60, loss: 1.685
+batch: 80, loss: 0.312
+batch: 100, loss: 3.450
+batch: 120, loss: 0.137
+batch: 140, loss: 0.246
+batch: 160, loss: 0.029
+batch: 180, loss: 0.023
+batch: 200, loss: 0.093
+batch: 220, loss: 0.036
+batch: 240, loss: 0.060
+batch: 260, loss: 0.175
+batch: 280, loss: 0.093
+batch: 300, loss: 0.181
+batch: 320, loss: 0.017
+batch: 340, loss: 0.028
+batch: 360, loss: 0.031
+batch: 380, loss: 0.073
+batch: 400, loss: 1.367
+batch: 420, loss: 0.012
+batch: 440, loss: 0.150
+batch: 460, loss: 0.148
+batch: 480, loss: 0.070
+batch: 500, loss: 0.014
+batch: 520, loss: 0.013
+batch: 540, loss: 0.083
+batch: 560, loss: 0.210
+batch: 580, loss: 0.034
+batch: 600, loss: 0.024
+batch: 620, loss: 1.923
+batch: 640, loss: 2.004
+batch: 660, loss: 0.040
+batch: 680, loss: 0.079
+batch: 700, loss: 0.022
+batch: 720, loss: 0.121
+batch: 740, loss: 0.092
+batch: 760, loss: 0.091
+batch: 780, loss: 0.093
+batch: 800, loss: 0.130
+batch: 820, loss: 0.114
+batch: 840, loss: 0.208
+Epoch: 1, train_loss: 0.4192, train_c_index: 0.5264
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.3857116224244237 , val_c_index: 0.5646460364561254
+batch: 0, loss: 0.031
+batch: 20, loss: 0.075
+batch: 40, loss: 0.058
+batch: 60, loss: 0.199
+batch: 80, loss: 0.035
+batch: 100, loss: 3.018
+batch: 120, loss: 0.050
+batch: 140, loss: 0.039
+batch: 160, loss: 0.027
+batch: 180, loss: 0.029
+batch: 200, loss: 0.030
+batch: 220, loss: 0.095
+batch: 240, loss: 0.381
+batch: 260, loss: 0.292
+batch: 280, loss: 2.688
+batch: 300, loss: 0.121
+batch: 320, loss: 0.386
+batch: 340, loss: 0.021
+batch: 360, loss: 0.059
+batch: 380, loss: 0.013
+batch: 400, loss: 0.066
+batch: 420, loss: 0.341
+batch: 440, loss: 0.509
+batch: 460, loss: 2.817
+batch: 480, loss: 0.070
+batch: 500, loss: 0.023
+batch: 520, loss: 0.039
+batch: 540, loss: 0.078
+batch: 560, loss: 3.057
+batch: 580, loss: 0.186
+batch: 600, loss: 0.056
+batch: 620, loss: 0.046
+batch: 640, loss: 0.039
+batch: 660, loss: 0.265
+batch: 680, loss: 0.048
+batch: 700, loss: 0.037
+batch: 720, loss: 1.994
+batch: 740, loss: 0.120
+batch: 760, loss: 0.011
+batch: 780, loss: 2.068
+batch: 800, loss: 0.033
+batch: 820, loss: 0.145
+batch: 840, loss: 0.052
+Epoch: 2, train_loss: 0.4166, train_c_index: 0.5230
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.383687029486256 , val_c_index: 0.5637982195845698
+batch: 0, loss: 1.282
+batch: 20, loss: 2.599
+batch: 40, loss: 2.085
+batch: 60, loss: 1.613
+batch: 80, loss: 0.578
+batch: 100, loss: 0.054
+batch: 120, loss: 0.228
+batch: 140, loss: 0.034
+batch: 160, loss: 0.503
+batch: 180, loss: 2.547
+batch: 200, loss: 0.041
+batch: 220, loss: 0.019
+batch: 240, loss: 0.029
+batch: 260, loss: 0.072
+batch: 280, loss: 0.248
+batch: 300, loss: 0.006
+batch: 320, loss: 0.007
+batch: 340, loss: 0.026
+batch: 360, loss: 0.010
+batch: 380, loss: 2.818
+batch: 400, loss: 2.585
+batch: 420, loss: 0.050
+batch: 440, loss: 0.154
+batch: 460, loss: 2.219
+batch: 480, loss: 0.018
+batch: 500, loss: 0.019
+batch: 520, loss: 0.470
+batch: 540, loss: 0.050
+batch: 560, loss: 1.720
+batch: 580, loss: 0.074
+batch: 600, loss: 0.024
+batch: 620, loss: 0.114
+batch: 640, loss: 0.032
+batch: 660, loss: 0.200
+batch: 680, loss: 0.330
+batch: 700, loss: 0.061
+batch: 720, loss: 0.050
+batch: 740, loss: 0.044
+batch: 760, loss: 0.051
+batch: 780, loss: 0.274
+batch: 800, loss: 2.206
+batch: 820, loss: 0.058
+batch: 840, loss: 0.036
+Epoch: 3, train_loss: 0.4124, train_c_index: 0.5647
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.3896275620641453 , val_c_index: 0.5506570580754557
+batch: 0, loss: 0.377
+batch: 20, loss: 0.060
+batch: 40, loss: 0.060
+batch: 60, loss: 0.307
+batch: 80, loss: 0.025
+batch: 100, loss: 0.022
+batch: 120, loss: 2.802
+batch: 140, loss: 0.036
+batch: 160, loss: 0.014
+batch: 180, loss: 0.380
+batch: 200, loss: 0.012
+batch: 220, loss: 0.025
+batch: 240, loss: 0.007
+batch: 260, loss: 0.018
+batch: 280, loss: 0.037
+batch: 300, loss: 0.116
+batch: 320, loss: 0.045
+batch: 340, loss: 0.100
+batch: 360, loss: 2.177
+batch: 380, loss: 0.077
+batch: 400, loss: 2.205
+batch: 420, loss: 0.038
+batch: 440, loss: 0.117
+batch: 460, loss: 0.104
+batch: 480, loss: 0.045
+batch: 500, loss: 0.033
+batch: 520, loss: 0.026
+batch: 540, loss: 0.076
+batch: 560, loss: 0.032
+batch: 580, loss: 0.082
+batch: 600, loss: 0.034
+batch: 620, loss: 0.143
+batch: 640, loss: 0.534
+batch: 660, loss: 0.054
+batch: 680, loss: 0.481
+batch: 700, loss: 0.117
+batch: 720, loss: 0.053
+batch: 740, loss: 0.325
+batch: 760, loss: 0.062
+batch: 780, loss: 0.034
+batch: 800, loss: 0.097
+batch: 820, loss: 0.032
+batch: 840, loss: 2.145
+Epoch: 4, train_loss: 0.4037, train_c_index: 0.5940
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.3945175695986975 , val_c_index: 0.5557439593047901
+batch: 0, loss: 1.837
+batch: 20, loss: 0.075
+batch: 40, loss: 0.400
+batch: 60, loss: 0.338
+batch: 80, loss: 0.259
+batch: 100, loss: 0.118
+batch: 120, loss: 0.173
+batch: 140, loss: 0.036
+batch: 160, loss: 0.446
+batch: 180, loss: 0.090
+batch: 200, loss: 0.018
+batch: 220, loss: 0.039
+batch: 240, loss: 0.042
+batch: 260, loss: 0.126
+batch: 280, loss: 0.049
+batch: 300, loss: 0.041
+batch: 320, loss: 0.642
+batch: 340, loss: 0.034
+batch: 360, loss: 0.160
+batch: 380, loss: 0.188
+batch: 400, loss: 0.162
+batch: 420, loss: 0.155
+batch: 440, loss: 2.321
+batch: 460, loss: 0.170
+batch: 480, loss: 0.054
+batch: 500, loss: 0.081
+batch: 520, loss: 0.013
+batch: 540, loss: 0.032
+batch: 560, loss: 0.114
+batch: 580, loss: 0.014
+batch: 600, loss: 0.032
+batch: 620, loss: 0.183
+batch: 640, loss: 0.107
+batch: 660, loss: 0.137
+batch: 680, loss: 0.108
+batch: 700, loss: 2.388
+batch: 720, loss: 1.464
+batch: 740, loss: 0.032
+batch: 760, loss: 0.122
+batch: 780, loss: 0.099
+batch: 800, loss: 0.012
+batch: 820, loss: 2.329
+batch: 840, loss: 0.574
+Epoch: 5, train_loss: 0.4031, train_c_index: 0.6083
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.3871279021503315 , val_c_index: 0.5544722339974566
+batch: 0, loss: 1.834
+batch: 20, loss: 0.071
+batch: 40, loss: 0.049
+batch: 60, loss: 0.019
+batch: 80, loss: 0.165
+batch: 100, loss: 0.092
+batch: 120, loss: 2.618
+batch: 140, loss: 0.106
+batch: 160, loss: 0.042
+batch: 180, loss: 0.047
+batch: 200, loss: 1.444
+batch: 220, loss: 2.936
+batch: 240, loss: 0.045
+batch: 260, loss: 0.373
+batch: 280, loss: 0.068
+batch: 300, loss: 0.056
+batch: 320, loss: 0.066
+batch: 340, loss: 0.285
+batch: 360, loss: 0.093
+batch: 380, loss: 0.130
+batch: 400, loss: 0.129
+batch: 420, loss: 0.582
+batch: 440, loss: 1.855
+batch: 460, loss: 0.074
+batch: 480, loss: 2.283
+batch: 500, loss: 0.069
+batch: 520, loss: 0.010
+batch: 540, loss: 0.457
+batch: 560, loss: 0.467
+batch: 580, loss: 0.072
+batch: 600, loss: 0.016
+batch: 620, loss: 0.334
+batch: 640, loss: 0.126
+batch: 660, loss: 0.121
+batch: 680, loss: 0.153
+batch: 700, loss: 0.054
+batch: 720, loss: 0.089
+batch: 740, loss: 2.798
+batch: 760, loss: 2.697
+batch: 780, loss: 0.026
+batch: 800, loss: 0.070
+batch: 820, loss: 1.575
+batch: 840, loss: 0.033
+Epoch: 6, train_loss: 0.3994, train_c_index: 0.6256
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.39131115363644703 , val_c_index: 0.5616786774056803
+batch: 0, loss: 0.136
+batch: 20, loss: 0.101
+batch: 40, loss: 0.027
+batch: 60, loss: 0.069
+batch: 80, loss: 0.009
+batch: 100, loss: 0.040
+batch: 120, loss: 0.029
+batch: 140, loss: 0.165
+batch: 160, loss: 0.100
+batch: 180, loss: 0.036
+batch: 200, loss: 0.083
+batch: 220, loss: 0.067
+batch: 240, loss: 0.026
+batch: 260, loss: 0.175
+batch: 280, loss: 1.516
+batch: 300, loss: 0.133
+batch: 320, loss: 0.149
+batch: 340, loss: 0.114
+batch: 360, loss: 0.088
+batch: 380, loss: 0.087
+batch: 400, loss: 0.052
+batch: 420, loss: 0.236
+batch: 440, loss: 0.045
+batch: 460, loss: 1.834
+batch: 480, loss: 0.490
+batch: 500, loss: 2.278
+batch: 520, loss: 2.455
+batch: 540, loss: 0.034
+batch: 560, loss: 0.142
+batch: 580, loss: 0.086
+batch: 600, loss: 2.050
+batch: 620, loss: 0.271
+batch: 640, loss: 0.085
+batch: 660, loss: 0.035
+batch: 680, loss: 0.153
+batch: 700, loss: 0.062
+batch: 720, loss: 0.258
+batch: 740, loss: 0.055
+batch: 760, loss: 1.771
+batch: 780, loss: 0.063
+batch: 800, loss: 0.115
+batch: 820, loss: 0.064
+batch: 840, loss: 1.372
+Epoch: 7, train_loss: 0.3916, train_c_index: 0.6637
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.392738861754714 , val_c_index: 0.562950402713014
+batch: 0, loss: 0.041
+batch: 20, loss: 0.037
+batch: 40, loss: 0.040
+batch: 60, loss: 0.133
+batch: 80, loss: 2.345
+batch: 100, loss: 0.073
+batch: 120, loss: 2.313
+batch: 140, loss: 0.076
+batch: 160, loss: 0.013
+batch: 180, loss: 0.039
+batch: 200, loss: 0.032
+batch: 220, loss: 0.032
+batch: 240, loss: 3.134
+batch: 260, loss: 0.034
+batch: 280, loss: 0.037
+batch: 300, loss: 0.079
+batch: 320, loss: 0.055
+batch: 340, loss: 0.015
+batch: 360, loss: 0.020
+batch: 380, loss: 0.106
+batch: 400, loss: 2.355
+batch: 420, loss: 0.062
+batch: 440, loss: 0.263
+batch: 460, loss: 0.276
+batch: 480, loss: 0.043
+batch: 500, loss: 2.577
+batch: 520, loss: 0.061
+batch: 540, loss: 0.488
+batch: 560, loss: 0.120
+batch: 580, loss: 0.084
+batch: 600, loss: 0.046
+batch: 620, loss: 0.041
+batch: 640, loss: 0.333
+batch: 660, loss: 0.139
+batch: 680, loss: 0.100
+batch: 700, loss: 0.139
+batch: 720, loss: 0.369
+batch: 740, loss: 0.040
+batch: 760, loss: 2.396
+batch: 780, loss: 0.020
+batch: 800, loss: 2.175
+batch: 820, loss: 0.088
+batch: 840, loss: 2.138
+Epoch: 8, train_loss: 0.3877, train_c_index: 0.6957
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.3907860685672079 , val_c_index: 0.5650699448919033
+batch: 0, loss: 2.309
+batch: 20, loss: 0.346
+batch: 40, loss: 0.037
+batch: 60, loss: 1.216
+batch: 80, loss: 0.020
+batch: 100, loss: 2.092
+batch: 120, loss: 0.127
+batch: 140, loss: 0.092
+batch: 160, loss: 2.270
+batch: 180, loss: 0.434
+batch: 200, loss: 0.017
+batch: 220, loss: 0.014
+batch: 240, loss: 0.086
+batch: 260, loss: 0.180
+batch: 280, loss: 0.025
+batch: 300, loss: 0.062
+batch: 320, loss: 0.167
+batch: 340, loss: 0.037
+batch: 360, loss: 0.047
+batch: 380, loss: 0.058
+batch: 400, loss: 0.050
+batch: 420, loss: 0.408
+batch: 440, loss: 0.026
+batch: 460, loss: 0.151
+batch: 480, loss: 0.141
+batch: 500, loss: 0.041
+batch: 520, loss: 0.473
+batch: 540, loss: 0.108
+batch: 560, loss: 0.257
+batch: 580, loss: 0.052
+batch: 600, loss: 2.538
+batch: 620, loss: 0.007
+batch: 640, loss: 0.036
+batch: 660, loss: 0.157
+batch: 680, loss: 0.014
+batch: 700, loss: 0.060
+batch: 720, loss: 0.085
+batch: 740, loss: 0.015
+batch: 760, loss: 0.058
+batch: 780, loss: 0.063
+batch: 800, loss: 0.099
+batch: 820, loss: 0.048
+batch: 840, loss: 0.010
+Epoch: 9, train_loss: 0.3875, train_c_index: 0.6854
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.39216985966167633 , val_c_index: 0.5616786774056803
+batch: 0, loss: 0.066
+batch: 20, loss: 2.075
+batch: 40, loss: 0.116
+batch: 60, loss: 1.575
+batch: 80, loss: 0.031
+batch: 100, loss: 0.037
+batch: 120, loss: 1.460
+batch: 140, loss: 0.093
+batch: 160, loss: 0.741
+batch: 180, loss: 0.547
+batch: 200, loss: 0.058
+batch: 220, loss: 0.365
+batch: 240, loss: 0.112
+batch: 260, loss: 0.086
+batch: 280, loss: 0.054
+batch: 300, loss: 0.316
+batch: 320, loss: 0.014
+batch: 340, loss: 0.018
+batch: 360, loss: 0.042
+batch: 380, loss: 1.906
+batch: 400, loss: 0.040
+batch: 420, loss: 0.355
+batch: 440, loss: 0.332
+batch: 460, loss: 2.419
+batch: 480, loss: 0.029
+batch: 500, loss: 0.290
+batch: 520, loss: 0.039
+batch: 540, loss: 0.050
+batch: 560, loss: 0.304
+batch: 580, loss: 0.111
+batch: 600, loss: 0.030
+batch: 620, loss: 0.162
+batch: 640, loss: 0.061
+batch: 660, loss: 0.037
+batch: 680, loss: 0.078
+batch: 700, loss: 0.385
+batch: 720, loss: 0.188
+batch: 740, loss: 0.082
+batch: 760, loss: 0.136
+batch: 780, loss: 0.058
+batch: 800, loss: 0.326
+batch: 820, loss: 0.472
+batch: 840, loss: 0.341
+Epoch: 10, train_loss: 0.3836, train_c_index: 0.7038
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.39223815096719633 , val_c_index: 0.5621025858414582
+Epoch: 10 is the best.
+batch: 0, loss: 0.040
+batch: 20, loss: 0.117
+batch: 40, loss: 0.035
+batch: 60, loss: 0.090
+batch: 80, loss: 0.033
+batch: 100, loss: 2.271
+batch: 120, loss: 0.044
+batch: 140, loss: 0.312
+batch: 160, loss: 0.051
+batch: 180, loss: 0.097
+batch: 200, loss: 0.196
+batch: 220, loss: 0.026
+batch: 240, loss: 0.119
+batch: 260, loss: 0.181
+batch: 280, loss: 0.023
+batch: 300, loss: 0.145
+batch: 320, loss: 2.705
+batch: 340, loss: 1.811
+batch: 360, loss: 0.428
+batch: 380, loss: 0.328
+batch: 400, loss: 0.076
+batch: 420, loss: 0.080
+batch: 440, loss: 0.021
+batch: 460, loss: 0.040
+batch: 480, loss: 0.066
+batch: 500, loss: 4.167
+batch: 520, loss: 0.043
+batch: 540, loss: 0.149
+batch: 560, loss: 0.167
+batch: 580, loss: 0.026
+batch: 600, loss: 2.594
+batch: 620, loss: 0.110
+batch: 640, loss: 0.036
+batch: 660, loss: 0.019
+batch: 680, loss: 0.057
+batch: 700, loss: 0.077
+batch: 720, loss: 0.109
+batch: 740, loss: 0.204
+batch: 760, loss: 1.764
+batch: 780, loss: 0.049
+batch: 800, loss: 0.048
+batch: 820, loss: 2.491
+batch: 840, loss: 2.154
+Epoch: 11, train_loss: 0.3808, train_c_index: 0.7090
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.3923997099045664 , val_c_index: 0.5616786774056803
+Start testing
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Final test c-index: 0.5621
+Saving results...
+Defining datasets...
+Created train/val/test datasets for fold 3
+
+Training Fold 3!
+
+Init train/val/test splits... 
+Done!
+Training on 842 samples
+Validating on 210 samples
+Testing on 210 samples
+
+Init loss function... Done!
+
+Init Model... clinic_num_tokens inferred from data: 4
+Done!
+Total number of parameters: 166276
+Total number of trainable parameters: 166276
+
+Init Loaders... Done!
+
+Init optimizer ... batch: 0, loss: 0.347
+batch: 20, loss: 0.671
+batch: 40, loss: 1.364
+batch: 60, loss: 0.346
+batch: 80, loss: 0.347
+batch: 100, loss: 0.664
+batch: 120, loss: 0.339
+batch: 140, loss: 0.658
+batch: 160, loss: 0.655
+batch: 180, loss: 1.323
+batch: 200, loss: 0.968
+batch: 220, loss: 0.316
+batch: 240, loss: 0.931
+batch: 260, loss: 1.237
+batch: 280, loss: 1.879
+batch: 300, loss: 0.245
+batch: 320, loss: 0.456
+batch: 340, loss: 0.159
+batch: 360, loss: 0.111
+batch: 380, loss: 0.087
+batch: 400, loss: 1.914
+batch: 420, loss: 2.469
+batch: 440, loss: 1.501
+batch: 460, loss: 0.308
+batch: 480, loss: 0.257
+batch: 500, loss: 0.231
+batch: 520, loss: 2.629
+batch: 540, loss: 0.058
+batch: 560, loss: 0.044
+batch: 580, loss: 0.041
+batch: 600, loss: 0.110
+batch: 620, loss: 0.370
+batch: 640, loss: 0.381
+batch: 660, loss: 0.114
+batch: 680, loss: 0.177
+batch: 700, loss: 0.030
+batch: 720, loss: 2.555
+batch: 740, loss: 0.044
+batch: 760, loss: 0.037
+batch: 780, loss: 2.725
+batch: 800, loss: 0.221
+batch: 820, loss: 2.198
+batch: 840, loss: 0.169
+Epoch: 0, train_loss: 0.5929, train_c_index: 0.4525
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.38105835511925673 , val_c_index: 0.4692677712453234
+batch: 0, loss: 0.054
+batch: 20, loss: 0.039
+batch: 40, loss: 0.335
+batch: 60, loss: 1.587
+batch: 80, loss: 0.023
+batch: 100, loss: 0.118
+batch: 120, loss: 0.064
+batch: 140, loss: 3.135
+batch: 160, loss: 0.090
+batch: 180, loss: 0.087
+batch: 200, loss: 0.095
+batch: 220, loss: 0.103
+batch: 240, loss: 0.052
+batch: 260, loss: 0.044
+batch: 280, loss: 0.193
+batch: 300, loss: 0.059
+batch: 320, loss: 0.045
+batch: 340, loss: 0.054
+batch: 360, loss: 0.325
+batch: 380, loss: 0.233
+batch: 400, loss: 2.197
+batch: 420, loss: 0.058
+batch: 440, loss: 1.960
+batch: 460, loss: 0.015
+batch: 480, loss: 0.282
+batch: 500, loss: 0.045
+batch: 520, loss: 0.192
+batch: 540, loss: 0.047
+batch: 560, loss: 0.030
+batch: 580, loss: 0.030
+batch: 600, loss: 0.132
+batch: 620, loss: 0.040
+batch: 640, loss: 0.039
+batch: 660, loss: 0.192
+batch: 680, loss: 0.028
+batch: 700, loss: 0.029
+batch: 720, loss: 0.032
+batch: 740, loss: 0.096
+batch: 760, loss: 0.046
+batch: 780, loss: 0.061
+batch: 800, loss: 2.395
+batch: 820, loss: 0.173
+batch: 840, loss: 1.472
+Epoch: 1, train_loss: 0.4240, train_c_index: 0.5183
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.36076622474051656 , val_c_index: 0.5654730090860502
+batch: 0, loss: 2.400
+batch: 20, loss: 0.144
+batch: 40, loss: 0.045
+batch: 60, loss: 2.942
+batch: 80, loss: 0.147
+batch: 100, loss: 0.128
+batch: 120, loss: 0.160
+batch: 140, loss: 0.098
+batch: 160, loss: 0.041
+batch: 180, loss: 0.054
+batch: 200, loss: 0.065
+batch: 220, loss: 0.008
+batch: 240, loss: 0.269
+batch: 260, loss: 0.311
+batch: 280, loss: 0.024
+batch: 300, loss: 0.022
+batch: 320, loss: 1.943
+batch: 340, loss: 0.169
+batch: 360, loss: 0.025
+batch: 380, loss: 0.404
+batch: 400, loss: 0.289
+batch: 420, loss: 0.131
+batch: 440, loss: 2.774
+batch: 460, loss: 0.072
+batch: 480, loss: 0.266
+batch: 500, loss: 0.121
+batch: 520, loss: 0.038
+batch: 540, loss: 0.088
+batch: 560, loss: 0.011
+batch: 580, loss: 0.037
+batch: 600, loss: 0.139
+batch: 620, loss: 0.078
+batch: 640, loss: 0.022
+batch: 660, loss: 0.112
+batch: 680, loss: 0.037
+batch: 700, loss: 0.035
+batch: 720, loss: 0.494
+batch: 740, loss: 0.078
+batch: 760, loss: 0.275
+batch: 780, loss: 0.054
+batch: 800, loss: 0.095
+batch: 820, loss: 0.046
+batch: 840, loss: 0.018
+Epoch: 2, train_loss: 0.4188, train_c_index: 0.5523
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.36654343294600644 , val_c_index: 0.5916622127204704
+batch: 0, loss: 2.009
+batch: 20, loss: 0.148
+batch: 40, loss: 0.046
+batch: 60, loss: 0.078
+batch: 80, loss: 0.067
+batch: 100, loss: 0.216
+batch: 120, loss: 0.082
+batch: 140, loss: 0.288
+batch: 160, loss: 0.122
+batch: 180, loss: 0.180
+batch: 200, loss: 1.736
+batch: 220, loss: 1.546
+batch: 240, loss: 1.619
+batch: 260, loss: 0.028
+batch: 280, loss: 0.022
+batch: 300, loss: 0.028
+batch: 320, loss: 0.013
+batch: 340, loss: 0.004
+batch: 360, loss: 0.029
+batch: 380, loss: 3.928
+batch: 400, loss: 0.082
+batch: 420, loss: 0.141
+batch: 440, loss: 0.197
+batch: 460, loss: 0.080
+batch: 480, loss: 0.198
+batch: 500, loss: 0.107
+batch: 520, loss: 0.389
+batch: 540, loss: 0.078
+batch: 560, loss: 0.406
+batch: 580, loss: 0.027
+batch: 600, loss: 1.802
+batch: 620, loss: 0.103
+batch: 640, loss: 0.155
+batch: 660, loss: 0.240
+batch: 680, loss: 0.058
+batch: 700, loss: 0.105
+batch: 720, loss: 1.704
+batch: 740, loss: 0.103
+batch: 760, loss: 0.070
+batch: 780, loss: 0.029
+batch: 800, loss: 0.030
+batch: 820, loss: 0.353
+batch: 840, loss: 0.349
+Epoch: 3, train_loss: 0.4191, train_c_index: 0.5620
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.38494738476971785 , val_c_index: 0.6060929983965794
+batch: 0, loss: 0.074
+batch: 20, loss: 0.292
+batch: 40, loss: 0.029
+batch: 60, loss: 0.379
+batch: 80, loss: 2.573
+batch: 100, loss: 0.059
+batch: 120, loss: 0.127
+batch: 140, loss: 0.290
+batch: 160, loss: 0.081
+batch: 180, loss: 0.044
+batch: 200, loss: 0.031
+batch: 220, loss: 0.140
+batch: 240, loss: 0.357
+batch: 260, loss: 0.020
+batch: 280, loss: 0.258
+batch: 300, loss: 0.191
+batch: 320, loss: 0.025
+batch: 340, loss: 0.023
+batch: 360, loss: 0.024
+batch: 380, loss: 0.008
+batch: 400, loss: 0.011
+batch: 420, loss: 0.012
+batch: 440, loss: 0.283
+batch: 460, loss: 0.027
+batch: 480, loss: 0.167
+batch: 500, loss: 0.220
+batch: 520, loss: 0.470
+batch: 540, loss: 0.197
+batch: 560, loss: 0.078
+batch: 580, loss: 0.056
+batch: 600, loss: 0.064
+batch: 620, loss: 0.033
+batch: 640, loss: 0.048
+batch: 660, loss: 0.091
+batch: 680, loss: 0.052
+batch: 700, loss: 0.032
+batch: 720, loss: 0.139
+batch: 740, loss: 0.320
+batch: 760, loss: 0.067
+batch: 780, loss: 0.069
+batch: 800, loss: 0.071
+batch: 820, loss: 0.232
+batch: 840, loss: 0.487
+Epoch: 4, train_loss: 0.4122, train_c_index: 0.5686
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.3706195184162685 , val_c_index: 0.6098343132014965
+batch: 0, loss: 2.444
+batch: 20, loss: 0.248
+batch: 40, loss: 0.056
+batch: 60, loss: 0.032
+batch: 80, loss: 0.045
+batch: 100, loss: 1.626
+batch: 120, loss: 0.030
+batch: 140, loss: 0.042
+batch: 160, loss: 0.267
+batch: 180, loss: 0.245
+batch: 200, loss: 0.191
+batch: 220, loss: 2.946
+batch: 240, loss: 0.479
+batch: 260, loss: 0.433
+batch: 280, loss: 0.113
+batch: 300, loss: 0.043
+batch: 320, loss: 0.081
+batch: 340, loss: 0.133
+batch: 360, loss: 0.140
+batch: 380, loss: 0.101
+batch: 400, loss: 0.045
+batch: 420, loss: 0.091
+batch: 440, loss: 0.036
+batch: 460, loss: 0.145
+batch: 480, loss: 1.524
+batch: 500, loss: 0.063
+batch: 520, loss: 0.046
+batch: 540, loss: 0.093
+batch: 560, loss: 0.094
+batch: 580, loss: 0.101
+batch: 600, loss: 0.099
+batch: 620, loss: 0.012
+batch: 640, loss: 0.009
+batch: 660, loss: 0.267
+batch: 680, loss: 0.060
+batch: 700, loss: 0.257
+batch: 720, loss: 0.554
+batch: 740, loss: 0.461
+batch: 760, loss: 2.431
+batch: 780, loss: 0.205
+batch: 800, loss: 0.412
+batch: 820, loss: 0.368
+batch: 840, loss: 0.078
+Epoch: 5, train_loss: 0.4064, train_c_index: 0.6063
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.356987321277016 , val_c_index: 0.6103687867450561
+batch: 0, loss: 0.081
+batch: 20, loss: 1.897
+batch: 40, loss: 0.051
+batch: 60, loss: 0.011
+batch: 80, loss: 0.073
+batch: 100, loss: 3.533
+batch: 120, loss: 0.313
+batch: 140, loss: 0.061
+batch: 160, loss: 0.094
+batch: 180, loss: 1.552
+batch: 200, loss: 0.421
+batch: 220, loss: 0.027
+batch: 240, loss: 0.008
+batch: 260, loss: 2.163
+batch: 280, loss: 0.025
+batch: 300, loss: 0.384
+batch: 320, loss: 0.096
+batch: 340, loss: 0.056
+batch: 360, loss: 0.038
+batch: 380, loss: 0.098
+batch: 400, loss: 0.170
+batch: 420, loss: 0.331
+batch: 440, loss: 1.472
+batch: 460, loss: 0.032
+batch: 480, loss: 0.309
+batch: 500, loss: 0.067
+batch: 520, loss: 0.023
+batch: 540, loss: 0.144
+batch: 560, loss: 0.189
+batch: 580, loss: 2.183
+batch: 600, loss: 0.158
+batch: 620, loss: 1.511
+batch: 640, loss: 0.015
+batch: 660, loss: 0.055
+batch: 680, loss: 2.048
+batch: 700, loss: 0.044
+batch: 720, loss: 0.335
+batch: 740, loss: 0.128
+batch: 760, loss: 0.055
+batch: 780, loss: 0.051
+batch: 800, loss: 0.091
+batch: 820, loss: 0.049
+batch: 840, loss: 0.030
+Epoch: 6, train_loss: 0.4000, train_c_index: 0.6410
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.3749341649668557 , val_c_index: 0.6253340459647247
+batch: 0, loss: 0.047
+batch: 20, loss: 0.126
+batch: 40, loss: 0.012
+batch: 60, loss: 0.021
+batch: 80, loss: 0.024
+batch: 100, loss: 1.746
+batch: 120, loss: 0.041
+batch: 140, loss: 0.118
+batch: 160, loss: 0.069
+batch: 180, loss: 0.029
+batch: 200, loss: 0.025
+batch: 220, loss: 0.090
+batch: 240, loss: 0.060
+batch: 260, loss: 0.037
+batch: 280, loss: 0.131
+batch: 300, loss: 0.048
+batch: 320, loss: 0.030
+batch: 340, loss: 2.026
+batch: 360, loss: 0.152
+batch: 380, loss: 0.104
+batch: 400, loss: 0.173
+batch: 420, loss: 0.208
+batch: 440, loss: 0.044
+batch: 460, loss: 0.093
+batch: 480, loss: 0.450
+batch: 500, loss: 0.107
+batch: 520, loss: 0.012
+batch: 540, loss: 0.083
+batch: 560, loss: 2.877
+batch: 580, loss: 0.039
+batch: 600, loss: 2.132
+batch: 620, loss: 0.117
+batch: 640, loss: 0.058
+batch: 660, loss: 0.019
+batch: 680, loss: 0.427
+batch: 700, loss: 0.061
+batch: 720, loss: 0.045
+batch: 740, loss: 0.019
+batch: 760, loss: 0.296
+batch: 780, loss: 0.041
+batch: 800, loss: 0.032
+batch: 820, loss: 0.146
+batch: 840, loss: 0.229
+Epoch: 7, train_loss: 0.3963, train_c_index: 0.6588
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.36940539339113804 , val_c_index: 0.6215927311598076
+batch: 0, loss: 0.142
+batch: 20, loss: 2.199
+batch: 40, loss: 0.039
+batch: 60, loss: 0.214
+batch: 80, loss: 0.034
+batch: 100, loss: 1.503
+batch: 120, loss: 0.066
+batch: 140, loss: 0.127
+batch: 160, loss: 1.445
+batch: 180, loss: 0.057
+batch: 200, loss: 0.263
+batch: 220, loss: 0.141
+batch: 240, loss: 0.326
+batch: 260, loss: 0.012
+batch: 280, loss: 2.365
+batch: 300, loss: 0.073
+batch: 320, loss: 0.364
+batch: 340, loss: 0.410
+batch: 360, loss: 0.092
+batch: 380, loss: 0.040
+batch: 400, loss: 0.020
+batch: 420, loss: 0.045
+batch: 440, loss: 0.061
+batch: 460, loss: 0.053
+batch: 480, loss: 0.080
+batch: 500, loss: 1.723
+batch: 520, loss: 1.619
+batch: 540, loss: 0.102
+batch: 560, loss: 0.056
+batch: 580, loss: 1.518
+batch: 600, loss: 0.053
+batch: 620, loss: 0.120
+batch: 640, loss: 0.013
+batch: 660, loss: 0.074
+batch: 680, loss: 0.286
+batch: 700, loss: 0.021
+batch: 720, loss: 0.142
+batch: 740, loss: 0.140
+batch: 760, loss: 0.021
+batch: 780, loss: 0.368
+batch: 800, loss: 0.019
+batch: 820, loss: 0.517
+batch: 840, loss: 0.041
+Epoch: 8, train_loss: 0.3927, train_c_index: 0.6647
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.37428436520332026 , val_c_index: 0.621058257616248
+batch: 0, loss: 0.056
+batch: 20, loss: 2.763
+batch: 40, loss: 1.612
+batch: 60, loss: 0.130
+batch: 80, loss: 0.264
+batch: 100, loss: 2.118
+batch: 120, loss: 0.073
+batch: 140, loss: 0.028
+batch: 160, loss: 0.032
+batch: 180, loss: 0.082
+batch: 200, loss: 0.158
+batch: 220, loss: 0.120
+batch: 240, loss: 0.153
+batch: 260, loss: 0.322
+batch: 280, loss: 1.855
+batch: 300, loss: 0.379
+batch: 320, loss: 0.066
+batch: 340, loss: 0.053
+batch: 360, loss: 0.308
+batch: 380, loss: 0.261
+batch: 400, loss: 0.062
+batch: 420, loss: 0.054
+batch: 440, loss: 0.025
+batch: 460, loss: 0.367
+batch: 480, loss: 2.591
+batch: 500, loss: 0.170
+batch: 520, loss: 0.072
+batch: 540, loss: 1.461
+batch: 560, loss: 0.032
+batch: 580, loss: 0.424
+batch: 600, loss: 0.076
+batch: 620, loss: 0.030
+batch: 640, loss: 0.129
+batch: 660, loss: 0.013
+batch: 680, loss: 0.049
+batch: 700, loss: 0.110
+batch: 720, loss: 0.291
+batch: 740, loss: 0.146
+batch: 760, loss: 0.038
+batch: 780, loss: 0.359
+batch: 800, loss: 0.045
+batch: 820, loss: 0.032
+batch: 840, loss: 0.265
+Epoch: 9, train_loss: 0.3841, train_c_index: 0.7024
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.36639909265075055 , val_c_index: 0.6199893105291288
+batch: 0, loss: 0.316
+batch: 20, loss: 0.013
+batch: 40, loss: 3.112
+batch: 60, loss: 0.008
+batch: 80, loss: 1.922
+batch: 100, loss: 0.017
+batch: 120, loss: 0.018
+batch: 140, loss: 0.089
+batch: 160, loss: 0.260
+batch: 180, loss: 0.363
+batch: 200, loss: 0.018
+batch: 220, loss: 0.028
+batch: 240, loss: 0.036
+batch: 260, loss: 0.372
+batch: 280, loss: 0.123
+batch: 300, loss: 0.292
+batch: 320, loss: 0.294
+batch: 340, loss: 0.015
+batch: 360, loss: 0.166
+batch: 380, loss: 0.054
+batch: 400, loss: 0.103
+batch: 420, loss: 0.133
+batch: 440, loss: 0.074
+batch: 460, loss: 0.060
+batch: 480, loss: 0.014
+batch: 500, loss: 2.043
+batch: 520, loss: 0.033
+batch: 540, loss: 0.338
+batch: 560, loss: 0.285
+batch: 580, loss: 0.293
+batch: 600, loss: 0.301
+batch: 620, loss: 0.074
+batch: 640, loss: 0.150
+batch: 660, loss: 1.492
+batch: 680, loss: 0.042
+batch: 700, loss: 0.373
+batch: 720, loss: 0.121
+batch: 740, loss: 0.034
+batch: 760, loss: 0.018
+batch: 780, loss: 0.254
+batch: 800, loss: 0.028
+batch: 820, loss: 2.416
+batch: 840, loss: 0.062
+Epoch: 10, train_loss: 0.3854, train_c_index: 0.7077
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.36831833362313254 , val_c_index: 0.621058257616248
+Epoch: 10 is the best.
+batch: 0, loss: 0.207
+batch: 20, loss: 0.016
+batch: 40, loss: 0.161
+batch: 60, loss: 0.055
+batch: 80, loss: 0.115
+batch: 100, loss: 0.026
+batch: 120, loss: 0.033
+batch: 140, loss: 0.048
+batch: 160, loss: 0.089
+batch: 180, loss: 0.147
+batch: 200, loss: 0.019
+batch: 220, loss: 0.044
+batch: 240, loss: 0.021
+batch: 260, loss: 0.112
+batch: 280, loss: 1.821
+batch: 300, loss: 1.896
+batch: 320, loss: 0.015
+batch: 340, loss: 0.023
+batch: 360, loss: 0.026
+batch: 380, loss: 0.065
+batch: 400, loss: 1.481
+batch: 420, loss: 0.090
+batch: 440, loss: 0.073
+batch: 460, loss: 0.009
+batch: 480, loss: 0.039
+batch: 500, loss: 0.123
+batch: 520, loss: 0.011
+batch: 540, loss: 0.098
+batch: 560, loss: 0.047
+batch: 580, loss: 0.280
+batch: 600, loss: 0.048
+batch: 620, loss: 0.153
+batch: 640, loss: 0.047
+batch: 660, loss: 0.091
+batch: 680, loss: 2.195
+batch: 700, loss: 0.111
+batch: 720, loss: 0.101
+batch: 740, loss: 0.071
+batch: 760, loss: 0.238
+batch: 780, loss: 0.058
+batch: 800, loss: 0.047
+batch: 820, loss: 0.020
+batch: 840, loss: 0.100
+Epoch: 11, train_loss: 0.3799, train_c_index: 0.7119
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.3685992110365381 , val_c_index: 0.6205237840726884
+Start testing
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Final test c-index: 0.6211
+Saving results...
+Defining datasets...
+Created train/val/test datasets for fold 4
+
+Training Fold 4!
+
+Init train/val/test splits... 
+Done!
+Training on 842 samples
+Validating on 210 samples
+Testing on 210 samples
+
+Init loss function... Done!
+
+Init Model... clinic_num_tokens inferred from data: 4
+Done!
+Total number of parameters: 166276
+Total number of trainable parameters: 166276
+
+Init Loaders... Done!
+
+Init optimizer ... batch: 0, loss: 0.712
+batch: 20, loss: 0.337
+batch: 40, loss: 0.335
+batch: 60, loss: 1.022
+batch: 80, loss: 0.334
+batch: 100, loss: 0.680
+batch: 120, loss: 1.015
+batch: 140, loss: 0.331
+batch: 160, loss: 0.326
+batch: 180, loss: 0.324
+batch: 200, loss: 0.652
+batch: 220, loss: 0.307
+batch: 240, loss: 0.956
+batch: 260, loss: 1.267
+batch: 280, loss: 0.578
+batch: 300, loss: 0.264
+batch: 320, loss: 0.242
+batch: 340, loss: 0.199
+batch: 360, loss: 0.631
+batch: 380, loss: 0.308
+batch: 400, loss: 0.087
+batch: 420, loss: 0.173
+batch: 440, loss: 0.100
+batch: 460, loss: 0.104
+batch: 480, loss: 0.031
+batch: 500, loss: 0.142
+batch: 520, loss: 0.081
+batch: 540, loss: 0.032
+batch: 560, loss: 0.021
+batch: 580, loss: 0.410
+batch: 600, loss: 2.284
+batch: 620, loss: 0.071
+batch: 640, loss: 0.033
+batch: 660, loss: 0.102
+batch: 680, loss: 0.018
+batch: 700, loss: 0.031
+batch: 720, loss: 0.062
+batch: 740, loss: 0.368
+batch: 760, loss: 0.012
+batch: 780, loss: 0.008
+batch: 800, loss: 0.022
+batch: 820, loss: 0.037
+batch: 840, loss: 2.281
+Epoch: 0, train_loss: 0.5517, train_c_index: 0.5596
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.44415052987280346 , val_c_index: 0.5121077762619373
+batch: 0, loss: 1.040
+batch: 20, loss: 0.028
+batch: 40, loss: 0.653
+batch: 60, loss: 0.037
+batch: 80, loss: 2.475
+batch: 100, loss: 0.027
+batch: 120, loss: 0.053
+batch: 140, loss: 0.619
+batch: 160, loss: 0.060
+batch: 180, loss: 0.016
+batch: 200, loss: 0.521
+batch: 220, loss: 0.187
+batch: 240, loss: 2.203
+batch: 260, loss: 0.102
+batch: 280, loss: 0.015
+batch: 300, loss: 0.033
+batch: 320, loss: 0.196
+batch: 340, loss: 0.059
+batch: 360, loss: 0.073
+batch: 380, loss: 0.218
+batch: 400, loss: 0.408
+batch: 420, loss: 0.027
+batch: 440, loss: 0.017
+batch: 460, loss: 0.255
+batch: 480, loss: 0.027
+batch: 500, loss: 1.718
+batch: 520, loss: 0.429
+batch: 540, loss: 0.066
+batch: 560, loss: 0.043
+batch: 580, loss: 1.770
+batch: 600, loss: 0.043
+batch: 620, loss: 0.545
+batch: 640, loss: 0.172
+batch: 660, loss: 0.040
+batch: 680, loss: 1.416
+batch: 700, loss: 0.084
+batch: 720, loss: 0.345
+batch: 740, loss: 0.012
+batch: 760, loss: 0.023
+batch: 780, loss: 0.035
+batch: 800, loss: 0.392
+batch: 820, loss: 0.339
+batch: 840, loss: 0.051
+Epoch: 1, train_loss: 0.4101, train_c_index: 0.4809
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.44235658598620264 , val_c_index: 0.5295020463847203
+batch: 0, loss: 2.712
+batch: 20, loss: 0.074
+batch: 40, loss: 0.164
+batch: 60, loss: 0.037
+batch: 80, loss: 0.099
+batch: 100, loss: 0.486
+batch: 120, loss: 0.023
+batch: 140, loss: 0.074
+batch: 160, loss: 0.175
+batch: 180, loss: 0.118
+batch: 200, loss: 0.068
+batch: 220, loss: 0.533
+batch: 240, loss: 0.061
+batch: 260, loss: 1.703
+batch: 280, loss: 0.103
+batch: 300, loss: 0.068
+batch: 320, loss: 0.055
+batch: 340, loss: 2.553
+batch: 360, loss: 0.476
+batch: 380, loss: 2.486
+batch: 400, loss: 0.125
+batch: 420, loss: 0.042
+batch: 440, loss: 0.053
+batch: 460, loss: 1.217
+batch: 480, loss: 0.032
+batch: 500, loss: 0.034
+batch: 520, loss: 2.373
+batch: 540, loss: 1.777
+batch: 560, loss: 0.134
+batch: 580, loss: 0.377
+batch: 600, loss: 0.083
+batch: 620, loss: 1.243
+batch: 640, loss: 0.085
+batch: 660, loss: 0.035
+batch: 680, loss: 1.103
+batch: 700, loss: 0.012
+batch: 720, loss: 2.374
+batch: 740, loss: 0.073
+batch: 760, loss: 0.419
+batch: 780, loss: 0.012
+batch: 800, loss: 0.045
+batch: 820, loss: 1.477
+batch: 840, loss: 0.054
+Epoch: 2, train_loss: 0.4066, train_c_index: 0.5380
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.438635822403289 , val_c_index: 0.5359822646657572
+batch: 0, loss: 0.022
+batch: 20, loss: 0.093
+batch: 40, loss: 0.037
+batch: 60, loss: 2.352
+batch: 80, loss: 0.230
+batch: 100, loss: 0.062
+batch: 120, loss: 2.887
+batch: 140, loss: 1.614
+batch: 160, loss: 0.516
+batch: 180, loss: 0.402
+batch: 200, loss: 0.035
+batch: 220, loss: 0.048
+batch: 240, loss: 0.160
+batch: 260, loss: 0.135
+batch: 280, loss: 0.012
+batch: 300, loss: 0.376
+batch: 320, loss: 1.924
+batch: 340, loss: 0.530
+batch: 360, loss: 0.296
+batch: 380, loss: 0.045
+batch: 400, loss: 0.024
+batch: 420, loss: 0.011
+batch: 440, loss: 1.911
+batch: 460, loss: 0.302
+batch: 480, loss: 0.020
+batch: 500, loss: 0.034
+batch: 520, loss: 0.023
+batch: 540, loss: 0.149
+batch: 560, loss: 0.460
+batch: 580, loss: 1.412
+batch: 600, loss: 0.113
+batch: 620, loss: 0.061
+batch: 640, loss: 0.446
+batch: 660, loss: 2.380
+batch: 680, loss: 0.011
+batch: 700, loss: 2.054
+batch: 720, loss: 0.251
+batch: 740, loss: 0.518
+batch: 760, loss: 0.099
+batch: 780, loss: 0.077
+batch: 800, loss: 0.308
+batch: 820, loss: 0.203
+batch: 840, loss: 0.014
+Epoch: 3, train_loss: 0.4029, train_c_index: 0.5536
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.4414835113898984 , val_c_index: 0.5612210095497954
+batch: 0, loss: 0.156
+batch: 20, loss: 0.141
+batch: 40, loss: 0.074
+batch: 60, loss: 0.034
+batch: 80, loss: 0.063
+batch: 100, loss: 0.076
+batch: 120, loss: 0.513
+batch: 140, loss: 1.002
+batch: 160, loss: 0.396
+batch: 180, loss: 0.336
+batch: 200, loss: 1.154
+batch: 220, loss: 0.065
+batch: 240, loss: 0.166
+batch: 260, loss: 0.074
+batch: 280, loss: 0.303
+batch: 300, loss: 0.070
+batch: 320, loss: 0.036
+batch: 340, loss: 0.181
+batch: 360, loss: 0.048
+batch: 380, loss: 0.996
+batch: 400, loss: 0.145
+batch: 420, loss: 0.027
+batch: 440, loss: 0.036
+batch: 460, loss: 2.927
+batch: 480, loss: 0.216
+batch: 500, loss: 0.044
+batch: 520, loss: 0.160
+batch: 540, loss: 0.110
+batch: 560, loss: 0.243
+batch: 580, loss: 0.023
+batch: 600, loss: 0.061
+batch: 620, loss: 0.358
+batch: 640, loss: 0.178
+batch: 660, loss: 0.046
+batch: 680, loss: 2.025
+batch: 700, loss: 0.079
+batch: 720, loss: 0.365
+batch: 740, loss: 0.077
+batch: 760, loss: 0.405
+batch: 780, loss: 0.017
+batch: 800, loss: 0.240
+batch: 820, loss: 0.373
+batch: 840, loss: 0.492
+Epoch: 4, train_loss: 0.3985, train_c_index: 0.5587
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.4393392148738106 , val_c_index: 0.5666780354706685
+batch: 0, loss: 0.008
+batch: 20, loss: 0.013
+batch: 40, loss: 0.024
+batch: 60, loss: 0.033
+batch: 80, loss: 0.069
+batch: 100, loss: 0.010
+batch: 120, loss: 0.374
+batch: 140, loss: 0.017
+batch: 160, loss: 0.015
+batch: 180, loss: 0.033
+batch: 200, loss: 0.018
+batch: 220, loss: 0.080
+batch: 240, loss: 0.043
+batch: 260, loss: 0.020
+batch: 280, loss: 0.028
+batch: 300, loss: 0.106
+batch: 320, loss: 0.379
+batch: 340, loss: 0.221
+batch: 360, loss: 0.043
+batch: 380, loss: 0.026
+batch: 400, loss: 0.078
+batch: 420, loss: 0.096
+batch: 440, loss: 1.552
+batch: 460, loss: 0.113
+batch: 480, loss: 0.224
+batch: 500, loss: 0.099
+batch: 520, loss: 0.416
+batch: 540, loss: 0.017
+batch: 560, loss: 0.489
+batch: 580, loss: 0.023
+batch: 600, loss: 0.045
+batch: 620, loss: 0.037
+batch: 640, loss: 0.035
+batch: 660, loss: 0.083
+batch: 680, loss: 0.156
+batch: 700, loss: 1.927
+batch: 720, loss: 0.182
+batch: 740, loss: 0.140
+batch: 760, loss: 1.128
+batch: 780, loss: 0.106
+batch: 800, loss: 0.103
+batch: 820, loss: 0.182
+batch: 840, loss: 2.918
+Epoch: 5, train_loss: 0.3936, train_c_index: 0.6063
+An error occured while computing c-index ipcw
+An error occured while computing BS
+An error occured while computing IBS
+An error occured while computing iauc
+Val loss: 0.43523045116813763 , val_c_index: 0.612380627557981
+batch: 0, loss: 0.131
+batch: 20, loss: 0.038
+batch: 40, loss: 0.066
+batch: 60, loss: 0.024
+batch: 80, loss: 0.077
+batch: 100, loss: 0.435
+batch: 120, loss: 0.043
+batch: 140, loss: 0.386
+batch: 160, loss: 0.004
+batch: 180, loss: 1.036
+batch: 200, loss: 0.009
+batch: 220, loss: 0.093
+batch: 240, loss: 0.047
+batch: 260, loss: 0.018
+batch: 280, loss: 0.146
+batch: 300, loss: 0.036
+batch: 320, loss: 0.052
+batch: 340, loss: 0.182
+batch: 360, loss: 0.072
+batch: 380, loss: 2.487
+batch: 400, loss: 0.016
+batch: 420, loss: 0.041
+batch: 440, loss: 0.037
+batch: 460, loss: 2.607
+batch: 480, loss: 0.054
