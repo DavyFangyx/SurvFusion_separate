@@ -472,10 +472,120 @@ CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --k 5 --k_start 0 --k_end 1 \
 
 
+## 13. Optuna 调参体系
+
+当前 `survtri_poe_vae` 已接入 Optuna 调参入口 `main_tune_optuna.py`，用于负责：
+
+- 超参数采样
+- pruning
+- 记录 trial 级最优验证指标
+
+WandB 只负责过程记录与可视化。
+
+当前实现范围：
+
+- 支持 `Model_A / Model_B / Model_C`
+- 当前采用**单 fold 调参**
+- 目标值统一为 `best val c-index`
+- 每个 epoch 结束后执行：
+  `wandb.log(...) -> trial.report(val_cindex, step=epoch) -> pruning 判断`
+
+### 13.1 各组调参空间
+
+- Model_A：
+  `lr`、`lr_stage1`、`reg`、`poe_beta_target`、`poe_modality_dropout`
+- Model_B：
+  `lr`、`lr_stage1`、`reg`、`poe_beta_target`、`poe_modality_dropout`、`poe_mmhid`、`poe_decoder_hidden_dim`
+- Model_C：
+  `lr`、`reg`、`poe_surv_lambda`、`poe_beta_target`、`poe_modality_dropout`
+
+### 13.2 采样与剪枝策略
+
+- sampler：
+  `TPE`
+- pruner：
+  `MedianPruner`
+- pruning 触发位置：
+  每个 epoch 验证结束后，依据 `val_c-index` 执行
+
+### 13.3 输出产物
+
+每个 study 会在结果目录下输出：
+
+- `optuna_trials.csv`
+- `best_trial.txt`
+- sqlite study 数据库（若使用默认 storage）
+
+同时每个 trial 仍会保留各自的训练结果目录与 WandB run。
+
+### 13.4 Model_A Optuna 运行示例
+
 ```bash
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 
-CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_tune_optuna.py \
+CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_tune_optuna.py \
+  --study tcga_lihc \
+  --modality survtri_poe_vae \
+  --poe_variant A \
+  --bag_loss cox_surv \
+  --label_dim 1 \
+  --encoding_dim 1024 \
+  --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/P/uni_v1 \
+  --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
+  --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
+  --optuna_fold 0 \
+  --optuna_trials 10 \
+  --max_epochs_stage1 5 \
+  --max_epochs 20 \
+  --warmup_epochs 3 \
+  --batch_size 128 \
+  --batch_size_stage1 128 \
+  --full_split_batch_threshold 256 \
+  --wandb_mode online \
+  --wandb_project SurvPGC_MultiVAE \
+  --wandb_entity davyfangyuxuan-nanjing-university-of-aeronautics-and-ast \
+  --exp_group poe_vae_optuna \
+  --run_name lihc_poeA
+```
+
+### 13.5 Model_B Optuna 运行示例
+
+```bash
+cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
+
+CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_tune_optuna.py \
+  --study tcga_lihc \
+  --modality survtri_poe_vae \
+  --poe_variant B \
+  --bag_loss cox_surv \
+  --label_dim 1 \
+  --encoding_dim 1024 \
+  --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/P/uni_v1 \
+  --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
+  --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
+  --optuna_fold 0 \
+  --optuna_trials 10 \
+  --max_epochs_stage1 5 \
+  --max_epochs 20 \
+  --warmup_epochs 3 \
+  --batch_size 128 \
+  --batch_size_stage1 128 \
+  --full_split_batch_threshold 256 \
+  --wandb_mode online \
+  --wandb_project SurvPGC_MultiVAE \
+  --wandb_entity davyfangyuxuan-nanjing-university-of-aeronautics-and-ast \
+  --exp_group poe_vae_optuna \
+  --run_name lihc_poeB
+```
+
+### 13.6 Model_C Optuna 运行示例
+
+```bash
+cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
+
+CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_tune_optuna.py \
   --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant C \
@@ -499,3 +609,9 @@ CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_
   --exp_group poe_vae_optuna \
   --run_name lihc_poeC
 ```
+
+### 13.7 当前限制
+
+- 当前仍是**单 fold Optuna**，尚未扩展到 `5-fold mean val c-index` 调参
+- 当前 Optuna 入口仅面向 `survtri_poe_vae`
+- 目标函数固定使用验证集 `c-index`，不直接使用测试集指标

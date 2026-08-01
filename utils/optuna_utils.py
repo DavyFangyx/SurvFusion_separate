@@ -52,11 +52,45 @@ def sample_survtri_poe_vae_model_c(trial, args):
     params = {
         "lr": trial.suggest_float("lr", 1e-5, 5e-4, log=True),
         "reg": trial.suggest_float("reg", 1e-6, 1e-2, log=True),
-        "poe_surv_lambda": trial.suggest_float("poe_usrv_lambda", 1e-2, 1e1, log=True),
+        "poe_surv_lambda": trial.suggest_float("poe_surv_lambda", 1e-2, 1e1, log=True),
         "poe_beta_target": trial.suggest_float("poe_beta_target", 1e-2, 2.0, log=True),
         "poe_modality_dropout": trial.suggest_float("poe_modality_dropout", 0.0, 0.4),
     }
     return params
+
+
+def sample_survtri_poe_vae_model_a(trial, args):
+    params = {
+        "lr": trial.suggest_float("lr", 1e-5, 5e-4, log=True),
+        "lr_stage1": trial.suggest_float("lr_stage1", 1e-5, 5e-4, log=True),
+        "reg": trial.suggest_float("reg", 1e-6, 1e-2, log=True),
+        "poe_beta_target": trial.suggest_float("poe_beta_target", 1e-2, 2.0, log=True),
+        "poe_modality_dropout": trial.suggest_float("poe_modality_dropout", 0.0, 0.4),
+    }
+    return params
+
+
+def sample_survtri_poe_vae_model_b(trial, args):
+    params = {
+        "lr": trial.suggest_float("lr", 1e-5, 5e-4, log=True),
+        "lr_stage1": trial.suggest_float("lr_stage1", 1e-5, 5e-4, log=True),
+        "reg": trial.suggest_float("reg", 1e-6, 1e-2, log=True),
+        "poe_beta_target": trial.suggest_float("poe_beta_target", 1e-2, 2.0, log=True),
+        "poe_modality_dropout": trial.suggest_float("poe_modality_dropout", 0.0, 0.4),
+        "poe_mmhid": trial.suggest_categorical("poe_mmhid", [128, 256, 512]),
+        "poe_decoder_hidden_dim": trial.suggest_categorical("poe_decoder_hidden_dim", [256, 512, 768]),
+    }
+    return params
+
+
+def sample_survtri_poe_vae_trial(trial, args):
+    if args.poe_variant == "A":
+        return sample_survtri_poe_vae_model_a(trial, args)
+    if args.poe_variant == "B":
+        return sample_survtri_poe_vae_model_b(trial, args)
+    if args.poe_variant == "C":
+        return sample_survtri_poe_vae_model_c(trial, args)
+    raise ValueError(f"Unsupported poe_variant `{args.poe_variant}` for Optuna.")
 
 
 def build_trial_args(base_args, trial, sampled_params, pruned_exception_cls):

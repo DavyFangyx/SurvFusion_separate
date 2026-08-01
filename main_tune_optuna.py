@@ -14,7 +14,7 @@ from utils.optuna_utils import (
     build_trial_args,
     ensure_optuna_available,
     resolve_optuna_storage,
-    sample_survtri_poe_vae_model_c,
+    sample_survtri_poe_vae_trial,
     save_study_artifacts,
 )
 from utils.process_args import _process_args
@@ -59,10 +59,10 @@ def _objective_factory(base_args):
     import optuna
 
     def objective(trial):
-        if base_args.modality != "survtri_poe_vae" or base_args.poe_variant != "C":
-            raise ValueError("The minimal Optuna tuner currently supports only survtri_poe_vae with poe_variant=C.")
+        if base_args.modality != "survtri_poe_vae":
+            raise ValueError("The minimal Optuna tuner currently supports only survtri_poe_vae.")
 
-        sampled_params = sample_survtri_poe_vae_model_c(trial, base_args)
+        sampled_params = sample_survtri_poe_vae_trial(trial, base_args)
         trial_args = build_trial_args(base_args, trial, sampled_params, optuna.TrialPruned)
         trial_args = _prepare_for_experiment(trial_args)
         trial_args.dataset_factory = _build_dataset_factory(trial_args)
@@ -100,8 +100,8 @@ def main(args):
 
     if args.modality != "survtri_poe_vae":
         raise ValueError("main_tune_optuna.py currently supports only `--modality survtri_poe_vae`.")
-    if args.poe_variant != "C":
-        raise ValueError("The minimal Optuna version currently supports only `--poe_variant C`.")
+    if args.poe_variant not in {"A", "B", "C"}:
+        raise ValueError("main_tune_optuna.py currently supports only `--poe_variant A|B|C`.")
 
     study_name = args.optuna_study_name or f"{args.study}_{args.modality}_{args.poe_variant}_fold{args.optuna_fold}"
     storage = resolve_optuna_storage(args)
