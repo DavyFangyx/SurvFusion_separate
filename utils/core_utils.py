@@ -1616,7 +1616,7 @@ def _train_val_test(datasets, cur, args):
     #----> init model
     model = _init_model(args, current_fold=cur)
 
-    #---> init loaders (stage2 / normal loaders, batch_size=1)
+    #---> init loaders (stage2 / normal loaders; train uses args.batch_size, val/test stay at batch_size=1)
     train_loader, val_loader, test_loader = _init_loaders(args, train_split, val_split, test_split)
 
     if args.modality == 'survfusion_separate':
@@ -1640,7 +1640,9 @@ def _train_val_test(datasets, cur, args):
     if args.modality in POE_MODALITIES and args.poe_variant in {'A', 'B'}:
         stage1_train_loader = _get_split_loader(
             args, train_split, training=True, testing=False,
-            weighted=args.weighted_sample, batch_size=1, disable_cox_batch_override=True
+            weighted=args.weighted_sample,
+            batch_size=args.batch_size_stage1,
+            disable_cox_batch_override=True,
         )
         _step_stage1_poe(cur, args, model, stage1_train_loader, val_loader)
 

@@ -668,6 +668,9 @@ def _get_split_loader(args, split_dataset, training = False, testing = False, we
         raise NotImplementedError
 
     effective_batch_size = batch_size
+    full_split_batch_threshold = getattr(args, "full_split_batch_threshold", -1)
+    if full_split_batch_threshold is not None and full_split_batch_threshold > 0 and batch_size >= full_split_batch_threshold:
+        effective_batch_size = max(1, len(split_dataset))
     if args.bag_loss == 'cox_surv' and not disable_cox_batch_override:
         effective_batch_size = max(1, len(split_dataset))
 

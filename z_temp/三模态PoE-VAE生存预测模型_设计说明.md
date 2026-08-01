@@ -16,8 +16,8 @@
 
 | 模态 | 特征提取器 | 输入维度 | 备注 |
 |---|---|---|---|
-| WSI | UNI V2 | (n_patch, 768) | n_patch 逐病人变化 |
-| Clinic | COACH | (n_c, 768) | n_c 同一实验组内固定，初始化时检测 |
+| WSI | UNI 1 | (n_patch, 1024) | n_patch 逐病人变化 |
+| Clinic | COACH | (n_c, 512) | n_c 同一实验组内固定，初始化时检测 |
 | Gene | scFoundation | (4, 768) | 固定 |
 
 **隐变量维度 d_z = 128，硬编码，不做成超参。**
@@ -62,7 +62,7 @@ WSI 编码器改为两段级联结构。第一段使用 WSI 专属的 MIL Resamp
 
 2. query 对 patches 做 cross-attention（Perceiver-resampler 式）
    - attention 计算时必须传入 padding_mask，屏蔽 padding patch
-   - 可堆叠 1~2 层 cross-attention block
+   - 可堆叠 1~2 层 cross-v block
 
 3. （可选，建议保留）K 个输出 token 之间再加 1 层轻量 self-attention
    - 因为 K 远小于 n_patch，这层计算量可忽略
@@ -235,15 +235,15 @@ Model_B / Model_C 使用的生存预测 head 直接复用已有工作的实现�
 输出: 与参考实现一致（如离散时间 bin 的 hazard logits）
 ```
 
-Model_A 的线性探针 head 除外——那是一个单独的、极简的线性层，用于诊断，需要自己实现（不复用参考代码）。
+Model_A 的线性探针 head 除外——那是一个单独的、极简的线性层。
 
 ---
 
 ## 10. 遗留待确认项
 
 - β_target、N_warmup、各 decoder hidden 维度、TransformerEncoderLayer 的 nhead/层数、MIL Resampler 的 K 值与层数等具体超参数值，尚未固定，写执行 prompt 前需给出默认值。
-- Model_A 线性探针具体用线性 Cox 还是线性 bin-hazard，需要确认（建议线性 Cox，实现最简单，作为纯诊断够用）。
-- 生存 head 的参考实现文件（xxxx.py）尚未提供，Model_B/C 的执行 prompt 需等该文件确定后再写。
+- Model_A 线性探针使用用线性 Cox 。
+- Model_B / Model_C 当前直接使用本项目中已实现的生存 head：`z -> fuse_fc -> classifier -> Cox risk score`，不再额外等待外部参考实现文件。
 
 ---
 
@@ -370,7 +370,7 @@ conda activate SurvPGC
 第一次用这个环境时执行：
 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python -m wandb login
 
-CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+CUDA_VISIBLE_DEVICES=2 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant A \
@@ -381,11 +381,13 @@ CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
   --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
-  --k 5 \
-  --max_epochs_stage1 5 \
-  --max_epochs 12 \
+  --k 5 --k_start 0 --k_end 1 \
+  --batch_size 128 \
+  --batch_size_stage1 128 \
+  --full_split_batch_threshold 256 \
+  --max_epochs_stage1 10 \
+  --max_epochs 20 \
   --warmup_epochs 3 \
-  --batch_size_stage1 1 \
   --wandb_mode online \
   --wandb_project SurvPGC_MultiVAE \
   --exp_group poe_vae_test \
@@ -397,7 +399,7 @@ CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 ```bash
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 
-CUDA_VISIBLE_DEVICES=2 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant B \
@@ -409,10 +411,12 @@ CUDA_VISIBLE_DEVICES=2 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
   --k 5 \
-  --max_epochs_stage1 5 \
-  --max_epochs 12 \
+  --batch_size 128 \
+  --batch_size_stage1 128 \
+  --full_split_batch_threshold 256 \
+  --max_epochs_stage1 10 \
+  --max_epochs 20 \
   --warmup_epochs 3 \
-  --batch_size_stage1 1 \
   --wandb_mode online \
   --wandb_project SurvPGC_MultiVAE \
   --exp_group poe_vae_test \
@@ -424,7 +428,7 @@ CUDA_VISIBLE_DEVICES=2 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 ```bash
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 
-CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant C \
@@ -435,8 +439,11 @@ CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
   --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
-  --k 5 \
-  --max_epochs 12 \
+  --k 5 --k_start 0 --k_end 1 \
+  --batch_size 128 \
+  --batch_size_stage1 128 \
+  --full_split_batch_threshold 256 \
+  --max_epochs 20 \
   --warmup_epochs 3 \
   --poe_surv_lambda 1.0 \
   --wandb_mode online \
@@ -450,9 +457,16 @@ CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 - 若已 `conda activate SurvPGC`，也可以将上面命令中的 Python 路径替换为：
   `python`
 - 当前代码里 best checkpoint 从 `epoch >= 10` 才开始保存，因此 `--max_epochs` 不应低于 `11`。
+- batch 参数：
+  `--batch_size` 控制主训练阶段
+  `--batch_size_stage1` 控制 Model_A / Model_B 的 stage1 VAE 预训练
+  `--full_split_batch_threshold` 用于控制：当 `batch_size` 或 `batch_size_stage1` 大于等于该阈值时，实际 batch 直接等于整个 split 的大小
+  `val / test` 固定为 `batch_size = 1`
 - 若要切换数据集，只需同步替换：
   `--study`
   `--data_root_dir`
   `--gene_dir`
   `--clinic_dir`
   `--split_dir`
+- 训练折数：
+  --k 5 --k_start 0 --k_end 1 \
