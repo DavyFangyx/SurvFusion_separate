@@ -320,7 +320,7 @@ Model_A 的线性探针 head 除外——那是一个单独的、极简的线性
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
-  --study tcga_kirc \
+  --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant C \
   --bag_loss cox_surv \
@@ -354,7 +354,7 @@ CUDA_VISIBLE_DEVICES=0 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 CUDA_VISIBLE_DEVICES=0
 ```
 
-下面示例使用 `tcga_kirc`、`P/uni_v1`、`C/L4`、`G/scFoundation_embedding_cell_norm`，并只跑 `fold 0` 进行单折测试。
+下面示例使用 `tcga_lihc`、`P/uni_v1`、`C/L4`、`G/scFoundation_embedding_cell_norm`，并只跑 `fold 0` 进行单折测试。
 
 ### 12.1 Model_A：VAE 预训练 + 冻结 backbone + 线性 Cox probe
 
@@ -371,17 +371,17 @@ conda activate SurvPGC
 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python -m wandb login
 
 CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
-  --study tcga_kirc \
+  --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant A \
   --bag_loss cox_surv \
   --label_dim 1 \
   --encoding_dim 1024 \
-  --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/P/uni_v1 \
-  --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/G/scFoundation_embedding_cell_norm \
-  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/C/L4 \
-  --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_kirc \
-  --k 5 --k_start 0 --k_end 1 \
+  --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/P/uni_v1 \
+  --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
+  --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
+  --k 5 \
   --max_epochs_stage1 5 \
   --max_epochs 12 \
   --warmup_epochs 3 \
@@ -398,17 +398,17 @@ CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 
 CUDA_VISIBLE_DEVICES=2 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
-  --study tcga_kirc \
+  --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant B \
   --bag_loss cox_surv \
   --label_dim 1 \
   --encoding_dim 1024 \
-  --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/P/uni_v1 \
-  --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/G/scFoundation_embedding_cell_norm \
-  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/C/L4 \
-  --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_kirc \
-  --k 5 --k_start 0 --k_end 1 \
+  --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/P/uni_v1 \
+  --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
+  --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
+  --k 5 \
   --max_epochs_stage1 5 \
   --max_epochs 12 \
   --warmup_epochs 3 \
@@ -425,17 +425,17 @@ CUDA_VISIBLE_DEVICES=2 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 
 CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
-  --study tcga_kirc \
+  --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant C \
   --bag_loss cox_surv \
   --label_dim 1 \
   --encoding_dim 1024 \
-  --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/P/uni_v1 \
-  --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/G/scFoundation_embedding_cell_norm \
-  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_kirc/C/L4 \
-  --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_kirc \
-  --k 5 --k_start 0 --k_end 1 \
+  --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/P/uni_v1 \
+  --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
+  --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
+  --k 5 \
   --max_epochs 12 \
   --warmup_epochs 3 \
   --poe_surv_lambda 1.0 \
