@@ -126,6 +126,27 @@ def _process_args():
                         help='Weights & Biases project name')
     parser.add_argument('--wandb_entity', type=str, default=None,
                         help='Weights & Biases entity/team name')
+    parser.add_argument('--optuna_trials', type=int, default=20,
+                        help='number of Optuna trials to run in main_tune_optuna.py')
+    parser.add_argument('--optuna_fold', type=int, default=0,
+                        help='single fold index used by the minimal Optuna tuner')
+    parser.add_argument('--optuna_storage', type=str, default=None,
+                        help='Optuna storage URL, e.g. sqlite:///results/optuna/study.db')
+    parser.add_argument('--optuna_study_name', type=str, default=None,
+                        help='Optuna study name; defaults to a study/variant-based name')
+    parser.add_argument('--optuna_sampler', type=str, default='tpe',
+                        choices=['tpe', 'random'],
+                        help='Optuna sampler type')
+    parser.add_argument('--optuna_pruner', type=str, default='median',
+                        choices=['median', 'none'],
+                        help='Optuna pruner type')
+    parser.add_argument('--optuna_direction', type=str, default='maximize',
+                        choices=['maximize', 'minimize'],
+                        help='Optuna optimization direction')
+    parser.add_argument('--optuna_n_startup_trials', type=int, default=5,
+                        help='number of startup trials before pruning activates')
+    parser.add_argument('--optuna_n_warmup_steps', type=int, default=3,
+                        help='number of warmup epochs before pruning activates')
 
     #---> model related
     parser.add_argument('--fusion', type=str, default=None, choices=['concat', 'bilinear'])

@@ -470,3 +470,32 @@ CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   `--split_dir`
 - 训练折数：
   --k 5 --k_start 0 --k_end 1 \
+
+
+```bash
+cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
+
+CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_tune_optuna.py \
+  --study tcga_lihc \
+  --modality survtri_poe_vae \
+  --poe_variant C \
+  --bag_loss cox_surv \
+  --label_dim 1 \
+  --encoding_dim 1024 \
+  --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/P/uni_v1 \
+  --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
+  --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
+  --optuna_fold 0 \
+  --optuna_trials 10 \
+  --max_epochs 20 \
+  --warmup_epochs 3 \
+  --batch_size 128 \
+  --batch_size_stage1 128 \
+  --full_split_batch_threshold 256 \
+  --wandb_mode online \
+  --wandb_project SurvPGC_MultiVAE \
+  --wandb_entity davyfangyuxuan-nanjing-university-of-aeronautics-and-ast \
+  --exp_group poe_vae_optuna \
+  --run_name lihc_poeC
+```

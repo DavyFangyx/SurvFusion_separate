@@ -61,7 +61,7 @@ def _init_wandb_run(args, fold):
 
     run_name = f"{args.run_name}_fold{fold}"
     config = dict(vars(args))
-    for key in ["dataset_factory", "wandb_run"]:
+    for key in ["dataset_factory", "wandb_run", "optuna_trial", "optuna_pruned_exception"]:
         config.pop(key, None)
 
     wandb_root = os.path.join(args.results_dir, "wandb")

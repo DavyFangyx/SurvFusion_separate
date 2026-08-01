@@ -83,6 +83,23 @@ def _wandb_log(args, payload, step=None):
     wandb.log(clean_payload, step=step)
 
 
+def _optuna_report_and_prune(args, metric, step):
+    trial = getattr(args, "optuna_trial", None)
+    if trial is None:
+        return
+    trial.report(float(metric), step=step)
+    if trial.should_prune():
+        pruned_exception = getattr(args, "optuna_pruned_exception", None)
+        if pruned_exception is None:
+            raise RuntimeError("Optuna pruning requested but no pruning exception class was provided.")
+        raise pruned_exception(f"Pruned at epoch {step} with val_cindex={metric:.4f}")
+
+
+def _tensor_to_numpy_safe(tensor, dtype=None):
+    array = np.asarray(tensor.detach().cpu().tolist(), dtype=dtype)
+    return array
+
+
 def _init_poe_epoch_monitor():
     return {
         "count": 0,
@@ -101,7 +118,7 @@ def _update_poe_epoch_monitor(monitor, cached_outputs):
     monitor["count"] += batch_size
     monitor["mean_norm_sum"] += torch.norm(mu_joint, dim=1).mean().item() * batch_size
     monitor["mean_std_sum"] += z_joint.var(dim=0, unbiased=False).mean().item() * batch_size
-    monitor["alpha_sum"] += poe_weights.mean(dim=0).cpu().numpy() * batch_size
+    monitor["alpha_sum"] += _tensor_to_numpy_safe(poe_weights.mean(dim=0), dtype=np.float64) * batch_size
 
 
 def _finalize_poe_epoch_monitor(monitor):
@@ -882,13 +899,13 @@ def _calculate_risk(h, bag_loss='nll_surv'):
     
     """
     if bag_loss == 'cox_surv':
-        risk = h.reshape(-1).detach().cpu().numpy()
+        risk = _tensor_to_numpy_safe(h.reshape(-1), dtype=np.float64)
         return risk, None
 
     hazards = torch.sigmoid(h)
     survival = torch.cumprod(1 - hazards, dim=1)
-    risk = -torch.sum(survival, dim=1).detach().cpu().numpy()
-    return risk, survival.detach().cpu().numpy()
+    risk = _tensor_to_numpy_safe(-torch.sum(survival, dim=1), dtype=np.float64)
+    return risk, _tensor_to_numpy_safe(survival, dtype=np.float64)
 
 def _update_arrays(all_risk_scores, all_censorships, all_event_times, all_clinical_data, event_time, censor, risk, clinical_data_list):
     r"""
@@ -912,8 +929,8 @@ def _update_arrays(all_risk_scores, all_censorships, all_event_times, all_clinic
     
     """
     all_risk_scores.append(risk)
-    all_censorships.append(censor.detach().cpu().numpy())
-    all_event_times.append(event_time.detach().cpu().numpy())
+    all_censorships.append(_tensor_to_numpy_safe(censor, dtype=np.float64))
+    all_event_times.append(_tensor_to_numpy_safe(event_time, dtype=np.float64))
     all_clinical_data.append(clinical_data_list)
     return all_risk_scores, all_censorships, all_event_times, all_clinical_data
 
@@ -1310,7 +1327,7 @@ def _summary(args, dataset_factory, model, modality, loader, loss_fn, survival_t
             if risk_by_bin is not None:
                 all_risk_by_bin_scores.append(risk_by_bin)
             all_risk_scores, all_censorships, all_event_times, clinical_data_list = _update_arrays(all_risk_scores, all_censorships, all_event_times,all_clinical_data, event_time, censor, risk, clinical_data_list)
-            all_logits.append(h.detach().cpu().numpy())
+            all_logits.append(_tensor_to_numpy_safe(h, dtype=np.float64))
             if args.bag_loss == 'cox_surv':
                 total_loss += loss_value * event_time.shape[0]
             else:
@@ -1554,13 +1571,21 @@ def _step(cur, args, loss_fn, model, optimizer, scheduler, train_loader, val_loa
 
     all_survival = _extract_survival_metadata(train_loader, val_loader, test_loader)
     val_cindex_max = 0
+    best_start_epoch = getattr(args, "save_best_from_epoch", 10)
 
     for epoch in range(args.max_epochs):
         _train_loop_survival(args, epoch, model, args.modality, train_loader, optimizer, scheduler, loss_fn)
         results_dict_val, val_cindex, val_cindex_ipcw, val_BS, val_IBS, val_iauc, val_iauc_list, total_loss, attn_matrix = _summary(args, args.dataset_factory, model, args.modality, val_loader, loss_fn, all_survival)
         print('Val loss:', total_loss, ', val_c_index:', val_cindex)
+        _wandb_log(args, {
+            "epoch": epoch,
+            "val/c_index": val_cindex,
+            "val/loss": total_loss,
+            "val/c_index_ipcw": val_cindex_ipcw,
+        }, step=epoch)
+        _optuna_report_and_prune(args, val_cindex, epoch)
         # save the best trained model
-        if epoch >= 10 and val_cindex >= val_cindex_max:
+        if epoch >= best_start_epoch and val_cindex >= val_cindex_max:
             val_cindex_max = val_cindex
             torch.save(model, os.path.join(args.results_dir, "s_{}_checkpoint.pt".format(cur)))
             filename = os.path.join(args.results_dir, 'split_{}_results_val.pkl'.format(cur))
