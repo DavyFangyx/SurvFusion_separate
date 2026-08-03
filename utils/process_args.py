@@ -130,6 +130,9 @@ def _process_args():
                         help='number of Optuna trials to run in main_tune_optuna.py')
     parser.add_argument('--optuna_fold', type=int, default=0,
                         help='single fold index used by the minimal Optuna tuner')
+    parser.add_argument('--optuna_fold_mode', type=str, default='mean_cv',
+                        choices=['single', 'mean_cv'],
+                        help='single uses one fold; mean_cv averages validation c-index across selected folds')
     parser.add_argument('--optuna_storage', type=str, default=None,
                         help='Optuna storage URL, e.g. sqlite:///results/optuna/study.db')
     parser.add_argument('--optuna_study_name', type=str, default=None,

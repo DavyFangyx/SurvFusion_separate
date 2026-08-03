@@ -6,9 +6,9 @@ from warnings import simplefilter
 import pandas as pd
 
 from datasets.dataset_survival import SurvivalDatasetFactory
-from main import _init_wandb_run, _write_filter_log
+from main import _write_filter_log
 from utils.core_utils import _train_val_test
-from utils.general_utils import _prepare_for_experiment
+from utils.general_utils import _get_start_end, _prepare_for_experiment
 from utils.optuna_utils import (
     build_optuna_components,
     build_trial_args,
@@ -18,6 +18,7 @@ from utils.optuna_utils import (
     save_study_artifacts,
 )
 from utils.process_args import _process_args
+from utils.wandb_utils import finish_wandb_run
 
 simplefilter(action="ignore", category=FutureWarning)
 
@@ -68,28 +69,37 @@ def _objective_factory(base_args):
         trial_args.dataset_factory = _build_dataset_factory(trial_args)
         _write_filter_log(trial_args)
 
-        fold = int(trial_args.optuna_fold)
-        trial_args.wandb_run = _init_wandb_run(trial_args, fold)
+        if trial_args.optuna_fold_mode == "single":
+            folds = [int(trial_args.optuna_fold)]
+        else:
+            folds = list(_get_start_end(trial_args))
 
-        try:
-            datasets = trial_args.dataset_factory.return_splits(
-                trial_args,
-                csv_path=f"{trial_args.split_dir}/splits_{fold}.csv",
-                fold=fold,
-            )
-            _train_val_test(datasets, fold, trial_args)
-            val_result_path = os.path.join(trial_args.results_dir, f"val_result_fold{fold}.csv")
-            val_df = pd.read_csv(val_result_path)
-            best_val_cindex = float(val_df["val_cindex"].iloc[0])
-            if trial_args.wandb_run is not None:
-                trial_args.wandb_run.summary["optuna/best_val_cindex"] = best_val_cindex
-                trial_args.wandb_run.summary["optuna/trial_number"] = trial.number
-            return best_val_cindex
-        finally:
-            if getattr(trial_args, "wandb_run", None) is not None:
-                import wandb
-                wandb.finish()
-                trial_args.wandb_run = None
+        fold_val_scores = []
+
+        for fold_index, fold in enumerate(folds):
+            trial_args.epoch_log_step_base = fold_index * int(trial_args.max_epochs)
+
+            try:
+                datasets = trial_args.dataset_factory.return_splits(
+                    trial_args,
+                    csv_path=f"{trial_args.split_dir}/splits_{fold}.csv",
+                    fold=fold,
+                )
+                _train_val_test(datasets, fold, trial_args)
+                val_result_path = os.path.join(trial_args.results_dir, f"val_result_fold{fold}.csv")
+                val_df = pd.read_csv(val_result_path)
+                best_val_cindex = float(val_df["val_cindex"].iloc[0])
+                fold_val_scores.append(best_val_cindex)
+                if trial_args.wandb_run is not None:
+                    trial_args.wandb_run.summary["optuna/fold_val_cindex"] = best_val_cindex
+                    trial_args.wandb_run.summary["optuna/trial_number"] = trial.number
+                    trial_args.wandb_run.summary["optuna/fold"] = fold
+            finally:
+                finish_wandb_run(trial_args)
+
+        mean_val_cindex = float(sum(fold_val_scores) / len(fold_val_scores))
+        trial.set_user_attr("fold_val_scores", fold_val_scores)
+        return mean_val_cindex
 
     return objective
 

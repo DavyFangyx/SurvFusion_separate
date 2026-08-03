@@ -370,7 +370,7 @@ conda activate SurvPGC
 第一次用这个环境时执行：
 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python -m wandb login
 
-CUDA_VISIBLE_DEVICES=2 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant A \
@@ -381,11 +381,11 @@ CUDA_VISIBLE_DEVICES=2 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
   --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
-  --k 5 --k_start 0 --k_end 1 \
+  --k 5 \
   --batch_size 128 \
   --batch_size_stage1 128 \
   --full_split_batch_threshold 256 \
-  --max_epochs_stage1 10 \
+  --max_epochs_stage1 20 \
   --max_epochs 20 \
   --warmup_epochs 3 \
   --wandb_mode online \
@@ -414,8 +414,8 @@ CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --batch_size 128 \
   --batch_size_stage1 128 \
   --full_split_batch_threshold 256 \
-  --max_epochs_stage1 10 \
-  --max_epochs 20 \
+  --max_epochs_stage1 20 \
+  --max_epochs 25 \
   --warmup_epochs 3 \
   --wandb_mode online \
   --wandb_project SurvPGC_MultiVAE \
@@ -439,11 +439,11 @@ CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
   --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
-  --k 5 --k_start 0 --k_end 1 \
+  --k 5 \
   --batch_size 128 \
   --batch_size_stage1 128 \
   --full_split_batch_threshold 256 \
-  --max_epochs 20 \
+  --max_epochs 25 \
   --warmup_epochs 3 \
   --poe_surv_lambda 1.0 \
   --wandb_mode online \
@@ -485,10 +485,15 @@ WandB 只负责过程记录与可视化。
 当前实现范围：
 
 - 支持 `Model_A / Model_B / Model_C`
-- 当前采用**单 fold 调参**
-- 目标值统一为 `best val c-index`
+- 当前已支持：
+  `single`
+  `5-fold mean val c-index`
+- 当前推荐采用 **5-fold mean val c-index 调参**
+- 目标值统一为：
+  `single` 模式：单折 `best val c-index`
+  `mean_cv` 模式：多折 `mean(best val c-index)`
 - 每个 epoch 结束后执行：
-  `wandb.log(...) -> trial.report(val_cindex, step=epoch) -> pruning 判断`
+  `wandb.log(...) -> trial.report(val_cindex, step=global_epoch_step) -> pruning 判断`
 
 ### 13.1 各组调参空间
 
@@ -502,11 +507,27 @@ WandB 只负责过程记录与可视化。
 ### 13.2 采样与剪枝策略
 
 - sampler：
-  `TPE`
+  当前支持 `TPE` 与 `Random`，默认 `TPE`
 - pruner：
-  `MedianPruner`
+  当前支持 `MedianPruner` 与关闭剪枝，默认 `MedianPruner`
 - pruning 触发位置：
   每个 epoch 验证结束后，依据 `val_c-index` 执行
+- `single` 模式：
+  使用 `--optuna_fold` 指定单折
+- `mean_cv` 模式：
+  使用：
+  `--k`
+  `--k_start`
+  `--k_end`
+  推导 folds，并返回其验证集 `c-index` 均值
+- 在 `mean_cv` 模式下，pruning 的 `step` 使用“fold 展开的全局 epoch 步数”
+- 当前推荐设置：
+  `--optuna_trials 10`
+  `--optuna_fold_mode mean_cv`
+  `--optuna_sampler tpe`
+  `--optuna_pruner median`
+  `--optuna_n_startup_trials 5`
+  `--optuna_n_warmup_steps 3`
 
 ### 13.3 输出产物
 
@@ -516,7 +537,7 @@ WandB 只负责过程记录与可视化。
 - `best_trial.txt`
 - sqlite study 数据库（若使用默认 storage）
 
-同时每个 trial 仍会保留各自的训练结果目录与 WandB run。
+同时每个 trial 仍会保留各 fold 的训练结果目录与 WandB run。
 
 ### 13.4 Model_A Optuna 运行示例
 
@@ -534,7 +555,8 @@ CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
   --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
-  --optuna_fold 0 \
+  --optuna_fold_mode mean_cv \
+  --k 5 \
   --optuna_trials 10 \
   --max_epochs_stage1 5 \
   --max_epochs 20 \
@@ -565,7 +587,8 @@ CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
   --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
-  --optuna_fold 0 \
+  --optuna_fold_mode mean_cv \
+  --k 5 \
   --optuna_trials 10 \
   --max_epochs_stage1 5 \
   --max_epochs 20 \
@@ -596,7 +619,8 @@ CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
   --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
-  --optuna_fold 0 \
+  --optuna_fold_mode mean_cv \
+  --k 5 \
   --optuna_trials 10 \
   --max_epochs 20 \
   --warmup_epochs 3 \
@@ -610,8 +634,15 @@ CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_
   --run_name lihc_poeC
 ```
 
+使用单折
+
+```
+--optuna_fold_mode single \
+--optuna_fold 1
+```
+
 ### 13.7 当前限制
 
-- 当前仍是**单 fold Optuna**，尚未扩展到 `5-fold mean val c-index` 调参
+- 当前 `mean_cv` 模式按 fold 顺序串行训练，计算开销显著高于 `single` 模式
 - 当前 Optuna 入口仅面向 `survtri_poe_vae`
 - 目标函数固定使用验证集 `c-index`，不直接使用测试集指标

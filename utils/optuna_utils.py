@@ -100,6 +100,9 @@ def build_trial_args(base_args, trial, sampled_params, pruned_exception_cls):
 
     trial_args.run_name = f"{base_args.run_name}_trial_{trial.number:04d}"
     trial_args.exp_group = f"{base_args.exp_group}_optuna"
+    trial_args.optuna_base_run_name = base_args.run_name
+    trial_args.optuna_experiment_tag = base_args.exp_group
+    trial_args.optuna_trial_tag = f"trial_{trial.number:04d}"
     trial_args.use_optuna = True
     trial_args.optuna_trial = trial
     trial_args.optuna_pruned_exception = pruned_exception_cls

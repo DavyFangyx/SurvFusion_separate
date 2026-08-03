@@ -42,6 +42,7 @@ from torch.nn.utils.rnn import pad_sequence
 
 from utils.general_utils import _get_split_loader, _print_network, _save_splits
 from utils.loss_func import NLLSurvLoss, NLLDiffSurvLoss, CoxSurvLoss
+from utils.wandb_utils import finish_wandb_run, init_wandb_run
 
 import torch.optim as optim
 try:
@@ -1577,13 +1578,14 @@ def _step(cur, args, loss_fn, model, optimizer, scheduler, train_loader, val_loa
         _train_loop_survival(args, epoch, model, args.modality, train_loader, optimizer, scheduler, loss_fn)
         results_dict_val, val_cindex, val_cindex_ipcw, val_BS, val_IBS, val_iauc, val_iauc_list, total_loss, attn_matrix = _summary(args, args.dataset_factory, model, args.modality, val_loader, loss_fn, all_survival)
         print('Val loss:', total_loss, ', val_c_index:', val_cindex)
+        epoch_log_step = getattr(args, "epoch_log_step_base", 0) + epoch
         _wandb_log(args, {
             "epoch": epoch,
             "val/c_index": val_cindex,
             "val/loss": total_loss,
             "val/c_index_ipcw": val_cindex_ipcw,
-        }, step=epoch)
-        _optuna_report_and_prune(args, val_cindex, epoch)
+        })
+        _optuna_report_and_prune(args, val_cindex, epoch_log_step)
         # save the best trained model
         if epoch >= best_start_epoch and val_cindex >= val_cindex_max:
             val_cindex_max = val_cindex
@@ -1644,51 +1646,77 @@ def _train_val_test(datasets, cur, args):
     #---> init loaders (stage2 / normal loaders; train uses args.batch_size, val/test stay at batch_size=1)
     train_loader, val_loader, test_loader = _init_loaders(args, train_split, val_split, test_split)
 
-    if args.modality == 'survfusion_separate':
+    try:
+        if args.modality == 'survfusion_separate':
         # ── Stage 1: CLIP 对齐训练（使用更大的 batch_size）
-        stage1_train_loader = _get_split_loader(
-            args, train_split, training=True, testing=False,
-            weighted=args.weighted_sample, batch_size=args.batch_size_stage1
-        )
-        _step_stage1(cur, args, model, stage1_train_loader, val_loader)
+            stage1_train_loader = _get_split_loader(
+                args, train_split, training=True, testing=False,
+                weighted=args.weighted_sample, batch_size=args.batch_size_stage1
+            )
+            _step_stage1(cur, args, model, stage1_train_loader, val_loader)
 
         # 加载 Stage1 最优 checkpoint，冻结参数，切换到 Stage2
-        model = torch.load(
-            os.path.join(args.results_dir, "s_{}_stage1_checkpoint.pt".format(cur)),
-            weights_only=False
-        )
-        model.freeze_stage1_modules()
-        model.set_training_stage("stage2")
-        if torch.cuda.is_available():
-            model = model.to(torch.device('cuda'))
-
-    if args.modality in POE_MODALITIES and args.poe_variant in {'A', 'B'}:
-        stage1_train_loader = _get_split_loader(
-            args, train_split, training=True, testing=False,
-            weighted=args.weighted_sample,
-            batch_size=args.batch_size_stage1,
-            disable_cox_batch_override=True,
-        )
-        _step_stage1_poe(cur, args, model, stage1_train_loader, val_loader)
-
-        model = torch.load(
-            os.path.join(args.results_dir, "s_{}_stage1_checkpoint.pt".format(cur)),
-            weights_only=False
-        )
-        if args.poe_variant == 'A':
-            model.freeze_backbone_for_probe()
-        else:
+            model = torch.load(
+                os.path.join(args.results_dir, "s_{}_stage1_checkpoint.pt".format(cur)),
+                weights_only=False
+            )
+            model.freeze_stage1_modules()
             model.set_training_stage("stage2")
-        if torch.cuda.is_available():
-            model = model.to(torch.device('cuda'))
+            if torch.cuda.is_available():
+                model = model.to(torch.device('cuda'))
 
-    # survfusion_noalign / survfusion_joint：无 Stage1，直接走 Stage2 pipeline
-    # （batch_size 由命令行 --batch_size 控制，建议设为 32）
+        if args.modality in POE_MODALITIES and args.poe_variant in {'A', 'B'}:
+            init_wandb_run(
+                args,
+                cur,
+                stage_name="stage1",
+                job_type="stage1_vae_pretrain",
+            )
+            stage1_train_loader = _get_split_loader(
+                args, train_split, training=True, testing=False,
+                weighted=args.weighted_sample,
+                batch_size=args.batch_size_stage1,
+                disable_cox_batch_override=True,
+            )
+            _step_stage1_poe(cur, args, model, stage1_train_loader, val_loader)
+            finish_wandb_run(args)
 
-    # ── Stage 2 / 普通模型：走现有 pipeline
-    optimizer = _init_optim(args, model)
-    lr_scheduler = _get_lr_scheduler(args, optimizer, train_loader)
+            model = torch.load(
+                os.path.join(args.results_dir, "s_{}_stage1_checkpoint.pt".format(cur)),
+                weights_only=False
+            )
+            if args.poe_variant == 'A':
+                model.freeze_backbone_for_probe()
+                stage2_job_type = "stage2_linear_probe"
+            else:
+                model.set_training_stage("stage2")
+                stage2_job_type = "stage2_survival_finetune"
+            if torch.cuda.is_available():
+                model = model.to(torch.device('cuda'))
 
-    results_dict, (test_cindex, test_cindex2, test_BS, test_IBS, test_iauc, test_iauc_list, total_loss), attn_matrix = _step(cur, args, loss_fn, model, optimizer, lr_scheduler, train_loader, val_loader, test_loader)
+            init_wandb_run(
+                args,
+                cur,
+                stage_name="stage2",
+                job_type=stage2_job_type,
+            )
+        else:
+            init_wandb_run(
+                args,
+                cur,
+                stage_name="stage2" if args.modality in POE_MODALITIES and args.poe_variant == 'C' else None,
+                job_type="stage2_joint_train" if args.modality in POE_MODALITIES and args.poe_variant == 'C' else None,
+            )
 
-    return results_dict, (test_cindex, test_cindex2, test_BS, test_IBS, test_iauc, test_iauc_list, total_loss), attn_matrix
+        # survfusion_noalign / survfusion_joint：无 Stage1，直接走 Stage2 pipeline
+        # （batch_size 由命令行 --batch_size 控制，建议设为 32）
+
+        # ── Stage 2 / 普通模型：走现有 pipeline
+        optimizer = _init_optim(args, model)
+        lr_scheduler = _get_lr_scheduler(args, optimizer, train_loader)
+
+        results_dict, (test_cindex, test_cindex2, test_BS, test_IBS, test_iauc, test_iauc_list, total_loss), attn_matrix = _step(cur, args, loss_fn, model, optimizer, lr_scheduler, train_loader, val_loader, test_loader)
+
+        return results_dict, (test_cindex, test_cindex2, test_BS, test_IBS, test_iauc, test_iauc_list, total_loss), attn_matrix
+    finally:
+        finish_wandb_run(args)

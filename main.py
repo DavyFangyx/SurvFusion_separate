@@ -7,14 +7,11 @@ import numpy as np
 import pdb
 import os
 from timeit import default_timer as timer
-try:
-    import wandb
-except ImportError:  # pragma: no cover
-    wandb = None
 from datasets.dataset_survival import SurvivalDatasetFactory
 from utils.core_utils import _train_val_test
 from utils.file_utils import _save_pkl
 from utils.general_utils import _get_start_end, _prepare_for_experiment
+from utils.wandb_utils import finish_wandb_run
 
 from utils.process_args import _process_args
 from warnings import simplefilter
@@ -52,43 +49,6 @@ def _write_filter_log(args):
 def subtype_label(oncotree_code):
     return oncotree_code if oncotree_code not in (None, "", "nan") else "N/A"
 
-
-def _init_wandb_run(args, fold):
-    if args.wandb_mode == "disabled":
-        return None
-    if wandb is None:
-        raise ImportError("wandb is not installed, but wandb logging was requested.")
-
-    run_name = f"{args.run_name}_fold{fold}"
-    config = dict(vars(args))
-    for key in ["dataset_factory", "wandb_run", "optuna_trial", "optuna_pruned_exception"]:
-        config.pop(key, None)
-
-    wandb_root = os.path.join(args.results_dir, "wandb")
-    wandb_cache = os.path.join(wandb_root, "cache")
-    os.makedirs(wandb_cache, exist_ok=True)
-    os.environ["WANDB_DIR"] = wandb_root
-    os.environ["WANDB_CACHE_DIR"] = wandb_cache
-    settings = wandb.Settings(
-        mode=args.wandb_mode,
-        root_dir=wandb_root,
-        start_method="thread",
-        symlink=False,
-    )
-
-    run = wandb.init(
-        project=args.wandb_project,
-        entity=args.wandb_entity,
-        group=f"{args.exp_group}/{args.modality}",
-        name=run_name,
-        dir=wandb_root,
-        config=config,
-        reinit=True,
-        tags=[args.modality, f"poe_{getattr(args, 'poe_variant', 'na')}", f"fold_{fold}"],
-        settings=settings,
-    )
-    return run
-
 def main(args):
 
     #----> prep for 5 fold cv study
@@ -105,8 +65,6 @@ def main(args):
     all_test_loss = []
 
     for i in folds:
-        args.wandb_run = _init_wandb_run(args, i)
-        
         datasets = args.dataset_factory.return_splits(
             args,
             csv_path='{}/splits_{}.csv'.format(args.split_dir, i),
@@ -130,9 +88,7 @@ def main(args):
         print("Saving results...")
         _save_pkl(filename, results)
 
-        if args.wandb_run is not None:
-            wandb.finish()
-            args.wandb_run = None
+        finish_wandb_run(args)
     
     final_df = pd.DataFrame({
         'test_cindex': all_test_cindex,
