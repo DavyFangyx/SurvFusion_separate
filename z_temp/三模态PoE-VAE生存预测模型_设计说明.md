@@ -384,7 +384,6 @@ CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --k 5 \
   --batch_size 128 \
   --batch_size_stage1 128 \
-  --full_split_batch_threshold 256 \
   --max_epochs_stage1 20 \
   --max_epochs 20 \
   --warmup_epochs 3 \
@@ -413,7 +412,6 @@ CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --k 5 \
   --batch_size 128 \
   --batch_size_stage1 128 \
-  --full_split_batch_threshold 256 \
   --max_epochs_stage1 20 \
   --max_epochs 25 \
   --warmup_epochs 3 \
@@ -428,7 +426,7 @@ CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 ```bash
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 
-CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant C \
@@ -442,7 +440,6 @@ CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --k 5 \
   --batch_size 128 \
   --batch_size_stage1 128 \
-  --full_split_batch_threshold 256 \
   --max_epochs 25 \
   --warmup_epochs 3 \
   --poe_surv_lambda 1.0 \
@@ -460,7 +457,6 @@ CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 - batch 参数：
   `--batch_size` 控制主训练阶段
   `--batch_size_stage1` 控制 Model_A / Model_B 的 stage1 VAE 预训练
-  `--full_split_batch_threshold` 用于控制：当 `batch_size` 或 `batch_size_stage1` 大于等于该阈值时，实际 batch 直接等于整个 split 的大小
   `val / test` 固定为 `batch_size = 1`
 - 若要切换数据集，只需同步替换：
   `--study`
@@ -563,7 +559,6 @@ CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_
   --warmup_epochs 3 \
   --batch_size 128 \
   --batch_size_stage1 128 \
-  --full_split_batch_threshold 256 \
   --wandb_mode online \
   --wandb_project SurvPGC_MultiVAE \
   --wandb_entity davyfangyuxuan-nanjing-university-of-aeronautics-and-ast \
@@ -595,7 +590,6 @@ CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_
   --warmup_epochs 3 \
   --batch_size 128 \
   --batch_size_stage1 128 \
-  --full_split_batch_threshold 256 \
   --wandb_mode online \
   --wandb_project SurvPGC_MultiVAE \
   --wandb_entity davyfangyuxuan-nanjing-university-of-aeronautics-and-ast \
@@ -626,7 +620,6 @@ CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_
   --warmup_epochs 3 \
   --batch_size 128 \
   --batch_size_stage1 128 \
-  --full_split_batch_threshold 256 \
   --wandb_mode online \
   --wandb_project SurvPGC_MultiVAE \
   --wandb_entity davyfangyuxuan-nanjing-university-of-aeronautics-and-ast \

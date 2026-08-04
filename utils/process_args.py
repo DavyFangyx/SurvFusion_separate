@@ -76,8 +76,6 @@ def _process_args():
     parser.add_argument('--reg_type', type=str, default="L2", help="regularization type [None, L1, L2]")
     parser.add_argument('--weighted_sample', action='store_true', default=False, help='enable weighted sampling')
     parser.add_argument('--batch_size', type=int, default=1, help='batch_size')
-    parser.add_argument('--full_split_batch_threshold', type=int, default=-1,
-                        help='if batch_size or batch_size_stage1 is >= this threshold, use the entire split as one batch; -1 disables it')
     parser.add_argument('--bag_loss', type=str, choices=['ce_surv', "nll_surv", "nll_rank_surv", "rank_surv", "cox_surv", "nll_diff_surv"], default='nll_surv',
                         help='survival loss function (default: ce)')
     parser.add_argument('--alpha_surv', type=float, default=0.5, help='weight given to uncensored patients')

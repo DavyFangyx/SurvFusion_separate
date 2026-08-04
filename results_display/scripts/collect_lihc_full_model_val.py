@@ -11,10 +11,9 @@ Outputs:
 from __future__ import annotations
 
 import argparse
+import csv
+import math
 from pathlib import Path
-
-import numpy as np
-import pandas as pd
 
 
 MODEL_TYPE_MAP = {
@@ -52,21 +51,29 @@ def project_root_from_script() -> Path:
 
 def load_cindex_stats(csv_path: Path) -> tuple[float, float, int] | None:
     try:
-        df = pd.read_csv(csv_path, index_col=0)
+        with csv_path.open(newline="", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            values: list[float] = []
+            for row in reader:
+                raw = row.get("test_cindex", "")
+                if raw is None or raw == "":
+                    continue
+                try:
+                    values.append(float(raw))
+                except ValueError:
+                    continue
     except Exception as exc:
         print(f"[WARN] Cannot read {csv_path}: {exc}")
         return None
 
-    if "test_cindex" not in df.columns:
-        print(f"[WARN] Missing test_cindex in {csv_path}")
-        return None
-
-    values = pd.to_numeric(df["test_cindex"], errors="coerce").dropna().to_numpy(dtype=float)
     if len(values) == 0:
         print(f"[WARN] Empty test_cindex in {csv_path}")
         return None
 
-    return float(np.mean(values)), float(np.std(values)), int(len(values))
+    mean = sum(values) / len(values)
+    variance = sum((value - mean) ** 2 for value in values) / len(values)
+    std = math.sqrt(variance)
+    return mean, std, len(values)
 
 
 def collect(results_dir: Path) -> pd.DataFrame:
@@ -91,8 +98,8 @@ def collect(results_dir: Path) -> pd.DataFrame:
                         "experiment": experiment_dir.name,
                         "model_type": model_type,
                         "model": model,
-                        "test_cindex_mean": np.nan,
-                        "test_cindex_5fold_std": np.nan,
+                        "test_cindex_mean": "",
+                        "test_cindex_5fold_std": "",
                         "fold_num": 0,
                         "test_cindex_mean_std": "-",
                         "status": "missing_test_result",
@@ -108,8 +115,8 @@ def collect(results_dir: Path) -> pd.DataFrame:
                         "experiment": experiment_dir.name,
                         "model_type": model_type,
                         "model": model,
-                        "test_cindex_mean": np.nan,
-                        "test_cindex_5fold_std": np.nan,
+                        "test_cindex_mean": "",
+                        "test_cindex_5fold_std": "",
                         "fold_num": 0,
                         "test_cindex_mean_std": "-",
                         "status": "unreadable_test_result",
@@ -133,17 +140,15 @@ def collect(results_dir: Path) -> pd.DataFrame:
             )
 
     if not rows:
-        return pd.DataFrame()
+        return []
 
-    df = pd.DataFrame(rows)
-    df["type_order"] = df["model_type"].map(lambda value: TYPE_ORDER.get(value, 99))
-    return (
-        df.sort_values(
-            by=["type_order", "experiment", "model"],
-            kind="stable",
-        )
-        .drop(columns=["type_order"])
-        .reset_index(drop=True)
+    return sorted(
+        rows,
+        key=lambda row: (
+            TYPE_ORDER.get(str(row["model_type"]), 99),
+            str(row["experiment"]),
+            str(row["model"]),
+        ),
     )
 
 
@@ -165,12 +170,26 @@ def main() -> None:
     args = parser.parse_args()
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    summary_df = collect(args.results_dir)
-    if summary_df.empty:
+    summary_rows = collect(args.results_dir)
+    if not summary_rows:
         raise SystemExit(f"No usable results found under {args.results_dir}")
 
     out_path = args.output_dir / "lihc_full_model_val_cindex_summary.csv"
-    summary_df.to_csv(out_path, index=False)
+    fieldnames = [
+        "study",
+        "experiment",
+        "model_type",
+        "model",
+        "test_cindex_mean",
+        "test_cindex_5fold_std",
+        "fold_num",
+        "test_cindex_mean_std",
+        "status",
+    ]
+    with out_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(summary_rows)
     print(f"[WRITE] {out_path.relative_to(project_root)}")
     print("Done.")
 

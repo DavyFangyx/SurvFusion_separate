@@ -129,6 +129,63 @@ apply_preset() {
                 --num_heads "$NUM_HEADS"
             )
             ;;
+        survtri_poe_vae_A)
+            MODEL="survtri_poe_vae"
+            POE_VARIANT="A"
+            BAG_LOSS="cox_surv"
+            RESULTS_SUBDIR="${MODEL}__${POE_VARIANT}"
+            EXTRA_ARGS=(
+                --label_dim "$LABEL_DIM"
+                --poe_variant "$POE_VARIANT"
+                --poe_surv_lambda "$POE_SURV_LAMBDA"
+                --poe_modality_dropout "$POE_MODALITY_DROPOUT"
+                --poe_decoder_hidden_dim "$POE_DECODER_HIDDEN_DIM"
+                --poe_mmhid "$POE_MMHID"
+                --poe_beta_target "$POE_BETA_TARGET"
+                --poe_transformer_layers "$POE_TRANSFORMER_LAYERS"
+                --lr_stage1 "$LR_STAGE1"
+                --max_epochs_stage1 "$MAX_EPOCHS_STAGE1"
+                --batch_size_stage1 "$BATCH_SIZE_STAGE1"
+            )
+            ;;
+        survtri_poe_vae_B)
+            MODEL="survtri_poe_vae"
+            POE_VARIANT="B"
+            BAG_LOSS="cox_surv"
+            RESULTS_SUBDIR="${MODEL}__${POE_VARIANT}"
+            EXTRA_ARGS=(
+                --label_dim "$LABEL_DIM"
+                --poe_variant "$POE_VARIANT"
+                --poe_surv_lambda "$POE_SURV_LAMBDA"
+                --poe_modality_dropout "$POE_MODALITY_DROPOUT"
+                --poe_decoder_hidden_dim "$POE_DECODER_HIDDEN_DIM"
+                --poe_mmhid "$POE_MMHID"
+                --poe_beta_target "$POE_BETA_TARGET"
+                --poe_transformer_layers "$POE_TRANSFORMER_LAYERS"
+                --lr_stage1 "$LR_STAGE1"
+                --max_epochs_stage1 "$MAX_EPOCHS_STAGE1"
+                --batch_size_stage1 "$BATCH_SIZE_STAGE1"
+            )
+            ;;
+        survtri_poe_vae_C)
+            MODEL="survtri_poe_vae"
+            POE_VARIANT="C"
+            BAG_LOSS="cox_surv"
+            RESULTS_SUBDIR="${MODEL}__${POE_VARIANT}"
+            EXTRA_ARGS=(
+                --label_dim "$LABEL_DIM"
+                --poe_variant "$POE_VARIANT"
+                --poe_surv_lambda "$POE_SURV_LAMBDA"
+                --poe_modality_dropout "$POE_MODALITY_DROPOUT"
+                --poe_decoder_hidden_dim "$POE_DECODER_HIDDEN_DIM"
+                --poe_mmhid "$POE_MMHID"
+                --poe_beta_target "$POE_BETA_TARGET"
+                --poe_transformer_layers "$POE_TRANSFORMER_LAYERS"
+                --lr_stage1 "$LR_STAGE1"
+                --max_epochs_stage1 "$MAX_EPOCHS_STAGE1"
+                --batch_size_stage1 "$BATCH_SIZE_STAGE1"
+            )
+            ;;
 
         # ========== SurvFusion 变体 ==========
         survfusion_noalign)

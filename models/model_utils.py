@@ -431,10 +431,10 @@ class ReconstructionLoss(nn.Module):
 
             recon = recon_dict[name][sample_mask]
             target = target_dict[name][sample_mask]
-            mse = F.mse_loss(recon, target, reduction="none").sum(dim=1)
+            mse = F.mse_loss(recon, target, reduction="none").mean(dim=1)
             logvar = self.logvars[name].clamp(min=-4.0, max=4.0)
             sigma2 = torch.exp(logvar)
-            loss = mse / (2.0 * sigma2) + 0.5 * dim * logvar
+            loss = mse / (2.0 * sigma2) + 0.5 * logvar
             loss = loss.mean()
             losses[name] = loss
             total = total + loss
@@ -448,4 +448,4 @@ class JeffreysDivergence(nn.Module):
         sigma2 = torch.exp(logvar.clamp(min=-4.0, max=2.0))
         inv_sigma2 = torch.reciprocal(sigma2)
         value = 0.5 * (sigma2 + inv_sigma2 - 2.0 + mu.pow(2) * (1.0 + inv_sigma2))
-        return value.sum(dim=1).mean()
+        return value.mean(dim=1).mean()

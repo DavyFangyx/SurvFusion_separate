@@ -158,6 +158,17 @@ write_effective_config() {
         CLIP_WEIGHT_IT
         CLIP_WEIGHT_IS
         CLIP_WEIGHT_TS
+        LABEL_DIM
+        POE_VARIANT
+        POE_SURV_LAMBDA
+        POE_MODALITY_DROPOUT
+        POE_DECODER_HIDDEN_DIM
+        POE_MMHID
+        POE_BETA_TARGET
+        POE_TRANSFORMER_LAYERS
+        WANDB_MODE
+        WANDB_PROJECT
+        WANDB_ENTITY
         RETURN_ATTN
         USE_NYSTROM
         LABEL_FILE
@@ -283,11 +294,17 @@ cmd=(
     --reg "$REG"
     --lr_scheduler "$LR_SCHEDULER"
     --warmup_epochs "$WARMUP_EPOCHS"
+    --wandb_mode "$WANDB_MODE"
+    --wandb_project "$WANDB_PROJECT"
     --selected_modalities "$SELECTED_MODALITIES"
     --modality "$MODEL"
     --encoding_dim "$ENCODING_DIM"
     "${EXTRA_ARGS[@]}"
 )
+
+if [ -n "${WANDB_ENTITY}" ]; then
+    cmd+=(--wandb_entity "$WANDB_ENTITY")
+fi
 
 append_bool_flag TESTING --testing
 append_bool_flag WEIGHTED_SAMPLE --weighted_sample
