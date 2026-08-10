@@ -520,6 +520,7 @@ def _init_model(args, current_fold=None):
             'modality_dropout_prob': args.poe_modality_dropout,
             'transformer_dropout': args.encoder_dropout,
             'transformer_layers': args.poe_transformer_layers,
+            'selected_modalities': args.selected_modalities,
         }
         model = SurvTriPoEVAE(**model_dict)
 

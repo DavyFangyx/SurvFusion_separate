@@ -155,7 +155,7 @@ def _process_args():
         '--selected_modalities',
         type=str,
         default='wsi,gene,clinic',
-        choices=['wsi,gene', 'wsi,clinic', 'gene,clinic', 'wsi,gene,clinic'],
+        choices=['wsi', 'gene', 'clinic', 'wsi,gene', 'wsi,clinic', 'gene,clinic', 'wsi,gene,clinic'],
         help='selected modalities for SurvTri models',
     )
     parser.add_argument('--modality', type=str, default="survpgc_f",

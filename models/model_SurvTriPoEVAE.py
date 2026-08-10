@@ -33,6 +33,7 @@ class SurvTriPoEVAE(nn.Module):
         transformer_layers=1,
         wsi_resampler_tokens=16,
         wsi_resampler_layers=2,
+        selected_modalities="wsi,gene,clinic",
     ):
         super().__init__()
         self.gene_num_tokens = gene_num_tokens
@@ -47,12 +48,21 @@ class SurvTriPoEVAE(nn.Module):
         self.poe_surv_lambda = poe_surv_lambda
         self.modality_dropout_prob = modality_dropout_prob
         self.modality_names = ("wsi", "gene", "clinic")
+        self.selected_modalities = tuple(selected_modalities.split(","))
 
         if self.poe_variant not in {"A", "B", "C"}:
             raise ValueError(f"Unsupported poe_variant `{poe_variant}`.")
+        if not self.selected_modalities:
+            raise ValueError("At least one modality must be selected.")
+        if any(name not in self.modality_names for name in self.selected_modalities):
+            raise ValueError(f"Unsupported selected_modalities `{selected_modalities}`.")
 
         self.training_stage = "stage1" if self.poe_variant in {"A", "B"} else "stage2"
         self.backbone_frozen = False
+        self.selected_modality_mask = torch.tensor(
+            [name in self.selected_modalities for name in self.modality_names],
+            dtype=torch.bool,
+        )
 
         self.wsi_resampler = WSIMILResampler(
             input_dim=wsi_embedding_dim,
@@ -196,8 +206,8 @@ class SurvTriPoEVAE(nn.Module):
         return x_clinic
 
     def _build_available_mask(self, batch_size, device):
-        available_mask = torch.ones(batch_size, len(self.modality_names), dtype=torch.bool, device=device)
-        use_dropout = self.training and (
+        available_mask = self.selected_modality_mask.to(device=device).unsqueeze(0).expand(batch_size, -1).clone()
+        use_dropout = self.training and len(self.selected_modalities) > 1 and (
             self.training_stage == "stage1" or self.poe_variant == "C"
         )
         return modality_dropout(available_mask, self.modality_dropout_prob, training=use_dropout)

@@ -160,18 +160,20 @@ Decoder 输入仅为 z，**不拼接任何 condition**：
 对每个模态 m 学一个标量可学习参数 logσ²_m：
 
 ```
-L_rec_m = MSE_m / (2 * σ²_m) + (dim_m / 2) * log(σ²_m)
+L_rec_m = mean_elementwise_MSE_m / (2 * σ²_m) + (1 / 2) * log(σ²_m)
 L_rec   = Σ_m L_rec_m       # m ∈ {wsi, gene, clinic}
 ```
 
-dim_m 取该模态重建目标的展平总维度（wsi=768，gene=4*768，clinic=n_c*768）。
+其中 `mean_elementwise_MSE_m` 表示该模态重建目标展平后，对所有元素先求逐元素平方误差，再按元素取平均，同时对 batch 取 mean。
+
+dim_m 取该模态重建目标的展平总维度（wsi=768，gene=4*768，clinic=n_c*768），当前实现按元素平均，因此不再显式乘 `dim_m`。
 
 ### 6.2 KL / Jeffreys 散度
 
 第一阶段训练全程使用 Jeffreys 散度（对称化 KL），作用于 joint 后验 q(z|m1,m2,m3) 与先验 N(0,I) 之间：
 
 ```
-J = 1/2 * Σ_j ( σ_j² + 1/σ_j² - 2 + μ_j² * (1 + 1/σ_j²) )
+J = (1/2) * mean_j ( σ_j² + 1/σ_j² - 2 + μ_j² * (1 + 1/σ_j²) )
 ```
 
 logσ²（各专家及 joint）均需 clamp 到 [-4, 2]。
@@ -185,6 +187,8 @@ L = L_rec + β(t) * J
 ```
 
 （β_target 和 N_warmup 作为超参，具体数值留待调参，不在本设计文档中固定。）
+
+当前这套重建损失与 Jeffreys 缩放是共享实现，因此会自动作用于所有会计算 VAE 损失的训练阶段：Model_A 的 stage1、Model_B 的 stage1，以及 Model_C 的联合训练中的 VAE 部分。
 
 ---
 
@@ -345,14 +349,6 @@ CUDA_VISIBLE_DEVICES=0 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 - split 结构：
   `splits/5foldcv/<study>/splits_*.csv`
 
-**重要：不要使用 `trident/bin/python` 运行这些命令。**
-`trident` 环境缺少当前训练入口依赖的 `sksurv`，会在 `utils/core_utils.py` 导入阶段直接报错。
-
-如需指定显卡，可在命令前加：
-
-```bash
-CUDA_VISIBLE_DEVICES=0
-```
 
 下面示例使用 `tcga_lihc`、`P/uni_v1`、`C/L4`、`G/scFoundation_embedding_cell_norm`，并只跑 `fold 0` 进行单折测试。
 
@@ -362,18 +358,18 @@ CUDA_VISIBLE_DEVICES=0
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 conda activate SurvPGC
 离线模式
-  --wandb_mode offline
+  --wandb_mode offline \
 在线模式
   --wandb_mode online \
   --wandb_project SurvPGC_MultiVAE \
-  --wandb_entity davyfangyuxuan-nanjing-university-of-aeronautics-and-ast #组织
 第一次用这个环境时执行：
 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python -m wandb login
 
-CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant A \
+  --selected_modalities clinic \
   --bag_loss cox_surv \
   --label_dim 1 \
   --encoding_dim 1024 \
@@ -381,16 +377,15 @@ CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
   --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
-  --k 5 \
+  --k 5 --k_start 0 --k_end 1 \
   --batch_size 128 \
   --batch_size_stage1 128 \
   --max_epochs_stage1 20 \
   --max_epochs 20 \
   --warmup_epochs 3 \
-  --wandb_mode online \
-  --wandb_project SurvPGC_MultiVAE \
+  --wandb_mode offline \
   --exp_group poe_vae_test \
-  --run_name model_A
+  --run_name model_A_OnlyC
 ```
 
 ### 12.2 Model_B：VAE 预训练 + `fuse_fc + classifier + Cox`
@@ -398,10 +393,11 @@ CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 ```bash
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 
-CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant B \
+  --selected_modalities gene \
   --bag_loss cox_surv \
   --label_dim 1 \
   --encoding_dim 1024 \
@@ -409,16 +405,15 @@ CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
   --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
-  --k 5 \
+  --k 5 --k_start 0 --k_end 1 \
   --batch_size 128 \
   --batch_size_stage1 128 \
   --max_epochs_stage1 20 \
   --max_epochs 25 \
   --warmup_epochs 3 \
-  --wandb_mode online \
-  --wandb_project SurvPGC_MultiVAE \
+  --wandb_mode offline \
   --exp_group poe_vae_test \
-  --run_name model_B
+  --run_name model_B_OnlyG
 ```
 
 ### 12.3 Model_C：联合训练 `L_rec + βJ + λL_surv`
@@ -426,10 +421,11 @@ CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 ```bash
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 
-CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+CUDA_VISIBLE_DEVICES=5 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant C \
+  --selected_modalities clinic \
   --bag_loss cox_surv \
   --label_dim 1 \
   --encoding_dim 1024 \
@@ -437,16 +433,15 @@ CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
   --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
-  --k 5 \
+  --k 5 --k_start 0 --k_end 1 \
   --batch_size 128 \
   --batch_size_stage1 128 \
   --max_epochs 25 \
   --warmup_epochs 3 \
   --poe_surv_lambda 1.0 \
-  --wandb_mode online \
-  --wandb_project SurvPGC_MultiVAE \
+  --wandb_mode offline \
   --exp_group poe_vae_test \
-  --run_name model_C
+  --run_name model_C_OnlyC
 ```
 
 ### 12.4 说明
@@ -465,8 +460,17 @@ CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   `--clinic_dir`
   `--split_dir`
 - 训练折数：
+  --k 5 \
   --k 5 --k_start 0 --k_end 1 \
-
+- 模态选择：
+  `--selected_modalities`
+  wsi
+  gene
+  clinic
+  wsi,gene
+  wsi,clinic
+  gene,clinic
+  wsi,gene,clinic
 
 ## 13. Optuna 调参体系
 
