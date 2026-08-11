@@ -117,6 +117,10 @@ def _process_args():
                         help='target beta for TriPoEVAE Jeffreys warmup')
     parser.add_argument('--poe_transformer_layers', type=int, default=1,
                         help='number of transformer layers for gene/clinic encoders in TriPoEVAE')
+    parser.add_argument('--poe_scan_stage1_ckpts', action='store_true', default=False,
+                        help='for TriPoEVAE-B only: save stage1 checkpoints on a fixed interval and launch one stage2 run per checkpoint')
+    parser.add_argument('--poe_stage1_ckpt_interval', type=int, default=5,
+                        help='epoch interval for saving TriPoEVAE-B stage1 checkpoints when checkpoint scan is enabled')
     parser.add_argument('--wandb_mode', type=str, default='disabled',
                         choices=['disabled', 'offline', 'online'],
                         help='Weights & Biases logging mode')

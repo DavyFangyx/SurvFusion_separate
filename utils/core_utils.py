@@ -1,4 +1,5 @@
 from ast import Lambda
+import copy
 import numpy as np
 import pdb
 import os
@@ -133,6 +134,14 @@ def _finalize_poe_epoch_monitor(monitor):
         "poe/alpha_gene": monitor["alpha_sum"][1] / denom,
         "poe/alpha_clinic": monitor["alpha_sum"][2] / denom,
     }
+
+
+def _clone_args_for_subrun(args, results_dir, stage1_scan_tag=None):
+    cloned = copy.copy(args)
+    cloned.results_dir = results_dir
+    cloned.wandb_run = None
+    cloned.current_stage1_scan_tag = stage1_scan_tag
+    return cloned
 
 
 def _get_poe_step_metrics(model, total_loss, kl_value, phase, beta=None):
@@ -1487,6 +1496,14 @@ def _step_stage1_poe(cur, args, model, train_loader, val_loader):
     scheduler = get_cosine_schedule_with_warmup(optimizer, warmup_steps, total_steps)
 
     val_loss_min = float('inf')
+    saved_checkpoints = []
+    stage1_scan_enabled = bool(getattr(args, "poe_scan_stage1_ckpts", False)) and args.poe_variant == "B"
+    ckpt_interval = max(1, int(getattr(args, "poe_stage1_ckpt_interval", 5)))
+    stage1_scan_dir = None
+    if stage1_scan_enabled:
+        stage1_scan_dir = os.path.join(args.results_dir, "stage1_scan", f"fold_{cur}")
+        os.makedirs(stage1_scan_dir, exist_ok=True)
+
     for epoch in range(args.max_epochs_stage1):
         _train_loop_stage1_poe(args, epoch, model, train_loader, optimizer, scheduler)
         val_loss = _val_loop_stage1_poe(args, epoch, model, val_loader)
@@ -1495,6 +1512,69 @@ def _step_stage1_poe(cur, args, model, train_loader, val_loader):
             val_loss_min = val_loss
             torch.save(model, os.path.join(args.results_dir, "s_{}_stage1_checkpoint.pt".format(cur)))
             print("TriPoEVAE Stage1 Epoch {} is the best.".format(epoch))
+        epoch_num = epoch + 1
+        if stage1_scan_enabled and (epoch_num % ckpt_interval == 0 or epoch_num == args.max_epochs_stage1):
+            scan_ckpt_path = os.path.join(stage1_scan_dir, f"ckpt_epoch_{epoch_num:03d}.pt")
+            torch.save(model, scan_ckpt_path)
+            saved_checkpoints.append((epoch_num, scan_ckpt_path))
+            print(f"TriPoEVAE Stage1 checkpoint saved: epoch={epoch_num}, path={scan_ckpt_path}")
+
+    return saved_checkpoints
+
+
+def _run_poe_stage2_from_checkpoint(
+    cur,
+    args,
+    loss_fn,
+    model,
+    train_loader,
+    val_loader,
+    test_loader,
+    stage2_results_dir,
+    stage1_scan_tag,
+):
+    stage2_args = _clone_args_for_subrun(args, stage2_results_dir, stage1_scan_tag=stage1_scan_tag)
+    init_wandb_run(
+        stage2_args,
+        cur,
+        stage_name="stage2",
+        job_type="stage2_survival_finetune",
+    )
+    try:
+        optimizer = _init_optim(stage2_args, model)
+        lr_scheduler = _get_lr_scheduler(stage2_args, optimizer, train_loader)
+        results_dict, metrics, attn_matrix = _step(
+            cur,
+            stage2_args,
+            loss_fn,
+            model,
+            optimizer,
+            lr_scheduler,
+            train_loader,
+            val_loader,
+            test_loader,
+        )
+
+        _save_pkl(os.path.join(stage2_results_dir, f"split_{cur}_results.pkl"), results_dict)
+        val_result_path = os.path.join(stage2_results_dir, f"val_result_fold{cur}.csv")
+        val_cindex = np.nan
+        if os.path.exists(val_result_path):
+            try:
+                val_df = pd.read_csv(val_result_path)
+                val_cindex = float(val_df["val_cindex"].iloc[0])
+            except Exception:
+                val_cindex = np.nan
+
+        return {
+            "results_dict": results_dict,
+            "metrics": metrics,
+            "attn_matrix": attn_matrix,
+            "val_cindex": val_cindex,
+            "results_dir": stage2_results_dir,
+            "stage1_scan_tag": stage1_scan_tag,
+        }
+    finally:
+        finish_wandb_run(stage2_args)
 
 
 def _step_stage1(cur, args, model, train_loader, val_loader):
@@ -1679,7 +1759,7 @@ def _train_val_test(datasets, cur, args):
                 batch_size=args.batch_size_stage1,
                 disable_cox_batch_override=True,
             )
-            _step_stage1_poe(cur, args, model, stage1_train_loader, val_loader)
+            stage1_ckpts = _step_stage1_poe(cur, args, model, stage1_train_loader, val_loader)
             finish_wandb_run(args)
 
             model = torch.load(
@@ -1694,6 +1774,76 @@ def _train_val_test(datasets, cur, args):
                 stage2_job_type = "stage2_survival_finetune"
             if torch.cuda.is_available():
                 model = model.to(torch.device('cuda'))
+
+            if args.poe_variant == 'B' and getattr(args, "poe_scan_stage1_ckpts", False):
+                scan_root = os.path.join(args.results_dir, "stage2_scan", f"fold_{cur}")
+                os.makedirs(scan_root, exist_ok=True)
+                stage1_ckpts = stage1_ckpts or [(args.max_epochs_stage1, os.path.join(args.results_dir, "s_{}_stage1_checkpoint.pt".format(cur)))]
+                scan_rows = []
+                scan_pick = []
+                for stage1_epoch, ckpt_path in stage1_ckpts:
+                    stage1_scan_tag = f"stage1{stage1_epoch:03d}pt"
+                    stage2_dir = os.path.join(scan_root, stage1_scan_tag)
+                    os.makedirs(stage2_dir, exist_ok=True)
+
+                    stage2_model = torch.load(ckpt_path, weights_only=False)
+                    stage2_model.set_training_stage("stage2")
+                    if torch.cuda.is_available():
+                        stage2_model = stage2_model.to(torch.device('cuda'))
+
+                    subrun_args = _clone_args_for_subrun(args, stage2_dir, stage1_scan_tag=stage1_scan_tag)
+                    init_wandb_run(
+                        subrun_args,
+                        cur,
+                        stage_name="stage2",
+                        job_type=stage2_job_type,
+                    )
+                    try:
+                        optimizer = _init_optim(subrun_args, stage2_model)
+                        lr_scheduler = _get_lr_scheduler(subrun_args, optimizer, train_loader)
+                        results_dict, metrics, attn_matrix = _step(
+                            cur,
+                            subrun_args,
+                            loss_fn,
+                            stage2_model,
+                            optimizer,
+                            lr_scheduler,
+                            train_loader,
+                            val_loader,
+                            test_loader,
+                        )
+                        _save_pkl(os.path.join(stage2_dir, f"split_{cur}_results.pkl"), results_dict)
+                        val_cindex = np.nan
+                        val_csv = os.path.join(stage2_dir, f"val_result_fold{cur}.csv")
+                        if os.path.exists(val_csv):
+                            try:
+                                val_df = pd.read_csv(val_csv)
+                                val_cindex = float(val_df["val_cindex"].iloc[0])
+                            except Exception:
+                                val_cindex = np.nan
+                        test_cindex, test_cindex_ipcw, test_BS, test_IBS, test_iauc, test_iauc_list, total_loss = metrics
+                        scan_rows.append({
+                            "stage1_epoch": stage1_epoch,
+                            "stage1_ckpt": ckpt_path,
+                            "stage1_scan_tag": stage1_scan_tag,
+                            "val_cindex": val_cindex,
+                            "test_cindex": test_cindex,
+                            "test_cindex_ipcw": test_cindex_ipcw,
+                            "test_BS": test_BS,
+                            "test_IBS": test_IBS,
+                            "test_iauc": test_iauc,
+                            "test_iauc_list": test_iauc_list,
+                            "test_loss": total_loss,
+                            "results_dir": stage2_dir,
+                        })
+                        scan_pick.append((results_dict, metrics, attn_matrix))
+                    finally:
+                        finish_wandb_run(subrun_args)
+
+                scan_df = pd.DataFrame(scan_rows)
+                scan_df.to_csv(os.path.join(scan_root, "scan_summary.csv"), index=False)
+                best_idx = int(scan_df["val_cindex"].astype(float).fillna(-np.inf).to_numpy().argmax())
+                return scan_pick[best_idx]
 
             init_wandb_run(
                 args,

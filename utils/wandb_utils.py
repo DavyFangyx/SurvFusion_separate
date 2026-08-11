@@ -71,7 +71,11 @@ def init_wandb_run(args, fold, stage_name=None, job_type=None):
         })
     else:
         experiment_tag = args.exp_group
-        run_name = f"{args.run_name}_{stage_tag}_fold{fold}"
+        run_name = f"{args.run_name}_{stage_tag}"
+        stage1_scan_tag = getattr(args, "current_stage1_scan_tag", None)
+        if stage1_scan_tag:
+            run_name = f"{run_name}_{stage1_scan_tag}"
+        run_name = f"{run_name}_fold{fold}"
         group = f"{args.exp_group}_train"
         tags = [
             args.exp_group,
@@ -82,6 +86,8 @@ def init_wandb_run(args, fold, stage_name=None, job_type=None):
             args.modality,
             f"poe_{getattr(args, 'poe_variant', 'na')}",
         ]
+        if stage1_scan_tag:
+            tags.append(stage1_scan_tag)
         config.update({
             "experiment_tag": experiment_tag,
             "run_kind": "train",
@@ -91,6 +97,8 @@ def init_wandb_run(args, fold, stage_name=None, job_type=None):
             "modality": args.modality,
             "poe_variant": getattr(args, "poe_variant", "na"),
         })
+        if stage1_scan_tag:
+            config["stage1_scan_tag"] = stage1_scan_tag
 
     run = wandb.init(
         project=args.wandb_project,

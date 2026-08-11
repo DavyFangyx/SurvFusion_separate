@@ -383,7 +383,8 @@ CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --max_epochs_stage1 20 \
   --max_epochs 20 \
   --warmup_epochs 3 \
-  --wandb_mode offline \
+  --wandb_mode online \
+  --wandb_project SurvPGC_MultiVAE \
   --exp_group poe_vae_test \
   --run_name model_A_OnlyC
 ```
@@ -393,11 +394,11 @@ CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 ```bash
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 
-CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+CUDA_VISIBLE_DEVICES=5 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant B \
-  --selected_modalities gene \
+  --selected_modalities clinic \
   --bag_loss cox_surv \
   --label_dim 1 \
   --encoding_dim 1024 \
@@ -405,15 +406,16 @@ CUDA_VISIBLE_DEVICES=7 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
   --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
-  --k 5 --k_start 0 --k_end 1 \
+  --k 5 \
   --batch_size 128 \
   --batch_size_stage1 128 \
   --max_epochs_stage1 20 \
   --max_epochs 25 \
   --warmup_epochs 3 \
-  --wandb_mode offline \
+  --wandb_mode online \
+  --wandb_project SurvPGC_MultiVAE \
   --exp_group poe_vae_test \
-  --run_name model_B_OnlyG
+  --run_name model_B_OnlyC
 ```
 
 ### 12.3 Model_C：联合训练 `L_rec + βJ + λL_surv`
@@ -439,7 +441,8 @@ CUDA_VISIBLE_DEVICES=5 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --max_epochs 25 \
   --warmup_epochs 3 \
   --poe_surv_lambda 1.0 \
-  --wandb_mode offline \
+  --wandb_mode online \
+  --wandb_project SurvPGC_MultiVAE \
   --exp_group poe_vae_test \
   --run_name model_C_OnlyC
 ```
@@ -471,6 +474,9 @@ CUDA_VISIBLE_DEVICES=5 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   wsi,clinic
   gene,clinic
   wsi,gene,clinic
+- ModelB stage1 扫描：
+--poe_scan_stage1_ckpts
+--poe_stage1_ckpt_interval 5
 
 ## 13. Optuna 调参体系
 
