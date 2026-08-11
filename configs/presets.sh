@@ -134,6 +134,9 @@ apply_preset() {
             POE_VARIANT="A"
             BAG_LOSS="cox_surv"
             RESULTS_SUBDIR="${MODEL}__${POE_VARIANT}"
+            if [ "$SELECTED_MODALITIES" != "wsi,gene,clinic" ]; then
+                RESULTS_SUBDIR="${RESULTS_SUBDIR}__${SELECTED_MODALITIES//,/_}"
+            fi
             EXTRA_ARGS=(
                 --label_dim "$LABEL_DIM"
                 --poe_variant "$POE_VARIANT"
@@ -153,6 +156,9 @@ apply_preset() {
             POE_VARIANT="B"
             BAG_LOSS="cox_surv"
             RESULTS_SUBDIR="${MODEL}__${POE_VARIANT}"
+            if [ "$SELECTED_MODALITIES" != "wsi,gene,clinic" ]; then
+                RESULTS_SUBDIR="${RESULTS_SUBDIR}__${SELECTED_MODALITIES//,/_}"
+            fi
             EXTRA_ARGS=(
                 --label_dim "$LABEL_DIM"
                 --poe_variant "$POE_VARIANT"
@@ -172,6 +178,9 @@ apply_preset() {
             POE_VARIANT="C"
             BAG_LOSS="cox_surv"
             RESULTS_SUBDIR="${MODEL}__${POE_VARIANT}"
+            if [ "$SELECTED_MODALITIES" != "wsi,gene,clinic" ]; then
+                RESULTS_SUBDIR="${RESULTS_SUBDIR}__${SELECTED_MODALITIES//,/_}"
+            fi
             EXTRA_ARGS=(
                 --label_dim "$LABEL_DIM"
                 --poe_variant "$POE_VARIANT"

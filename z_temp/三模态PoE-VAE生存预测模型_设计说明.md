@@ -394,11 +394,10 @@ CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 ```bash
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 
-CUDA_VISIBLE_DEVICES=5 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+CUDA_VISIBLE_DEVICES=4 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant B \
-  --selected_modalities clinic \
   --bag_loss cox_surv \
   --label_dim 1 \
   --encoding_dim 1024 \
@@ -409,13 +408,15 @@ CUDA_VISIBLE_DEVICES=5 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --k 5 \
   --batch_size 128 \
   --batch_size_stage1 128 \
-  --max_epochs_stage1 20 \
+  --max_epochs_stage1 32 \
+  --poe_scan_stage1_ckpts \
+  --poe_stage1_ckpt_interval 4
   --max_epochs 25 \
   --warmup_epochs 3 \
   --wandb_mode online \
   --wandb_project SurvPGC_MultiVAE \
   --exp_group poe_vae_test \
-  --run_name model_B_OnlyC
+  --run_name model_B_STAGE1test
 ```
 
 ### 12.3 Model_C：联合训练 `L_rec + βJ + λL_surv`
