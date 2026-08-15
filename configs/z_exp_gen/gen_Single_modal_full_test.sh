@@ -79,6 +79,12 @@ CLINIC_EXPERIMENTS=(
     L3
     L4
     L5
+    D0
+    D1
+    D2
+    D3
+    D4
+    D5
 )
 
 CLINIC_MODELS=(
@@ -194,4 +200,4 @@ echo "Expected result folders:"
 echo "  results/WSItest_F/<study>__uni_v1/<wsi_model>/"
 echo "  results/Genetest/<study>__<gene_embedding>/<gene_f_model>/"
 echo "  results/Genetest/<study>__csvraw/<gene_csv_model>/"
-echo "  results/Clinictest_Li/<study>__<Lx>/<clinic_model>/"
+echo "  results/Clinictest_Li/<study>__<Lx_or_Dx>/<clinic_model>/"

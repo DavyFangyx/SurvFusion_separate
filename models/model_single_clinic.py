@@ -4,7 +4,7 @@ import torch.nn as nn
 from models.model_utils import SNN_Block, init_max_weights
 
 
-def _extract_clinic_tensor(kwargs):
+def _extract_clinic_tensor(kwargs, expect_tokens=None, expect_dim=None):
     x = kwargs.get("x_clinic")
     if x is None:
         x = kwargs.get("data_clinic")
@@ -17,6 +17,10 @@ def _extract_clinic_tensor(kwargs):
         x = x.unsqueeze(0)
     elif x.dim() != 3:
         raise ValueError(f"Unsupported clinic tensor shape: {tuple(x.shape)}")
+    if expect_tokens is not None and x.shape[1] != expect_tokens:
+        raise ValueError(f"clinic token mismatch: got {x.shape[1]}, expect {expect_tokens}")
+    if expect_dim is not None and x.shape[2] != expect_dim:
+        raise ValueError(f"clinic feat_dim mismatch: got {x.shape[2]}, expect {expect_dim}")
     return x
 
 
@@ -34,6 +38,7 @@ class MLPClinic(nn.Module):
         if pooling not in {"mean", "flatten"}:
             raise ValueError(f"Unsupported pooling `{pooling}`.")
         hidden_dim = projection_dim // 4
+        self.input_dim = input_dim
         self.pooling = pooling
         self.clinic_num_tokens = clinic_num_tokens
         self.token_net = nn.Sequential(
@@ -48,7 +53,11 @@ class MLPClinic(nn.Module):
         self.classifier = nn.Linear(classifier_in_dim, n_classes)
 
     def forward(self, return_feats: bool = False, **kwargs):
-        x = _extract_clinic_tensor(kwargs)
+        x = _extract_clinic_tensor(
+            kwargs,
+            expect_tokens=self.clinic_num_tokens,
+            expect_dim=self.input_dim,
+        )
         h = self.token_net(x)
         pooled = h.mean(dim=1) if self.pooling == "mean" else h.reshape(h.shape[0], -1)
         logits = self.classifier(pooled)
@@ -77,6 +86,7 @@ class SNNClinic(nn.Module):
         if model_size_omic not in size_dict:
             raise ValueError(f"Unsupported model_size_omic `{model_size_omic}`.")
         hidden = size_dict[model_size_omic]
+        self.input_dim = input_dim
         blocks = [SNN_Block(dim1=input_dim, dim2=hidden[0])]
         for idx in range(len(hidden) - 1):
             blocks.append(SNN_Block(dim1=hidden[idx], dim2=hidden[idx + 1], dropout=0.1))
@@ -88,7 +98,11 @@ class SNNClinic(nn.Module):
         init_max_weights(self)
 
     def forward(self, return_feats: bool = False, **kwargs):
-        x = _extract_clinic_tensor(kwargs)
+        x = _extract_clinic_tensor(
+            kwargs,
+            expect_tokens=self.clinic_num_tokens,
+            expect_dim=self.input_dim,
+        )
         h = self.encoder(x)
         pooled = h.mean(dim=1) if self.pooling == "mean" else h.reshape(h.shape[0], -1)
         logits = self.classifier(pooled)
@@ -103,16 +117,12 @@ class CoxClinic(nn.Module):
         self.risk_head = nn.Linear(input_dim * clinic_num_tokens, 1, bias=False)
 
     def forward(self, **kwargs):
-        clinic = kwargs.get("x_clinic")
-        if clinic is None:
-            clinic = kwargs.get("data_clinic")
-        if clinic is None:
-            raise KeyError("Expected `x_clinic` or `data_clinic` in kwargs.")
-        clinic = clinic.float()
-        if clinic.dim() == 2:
-            clinic = clinic.unsqueeze(0)
-        clinic = clinic.reshape(clinic.shape[0], -1)
-        return self.risk_head(clinic)
+        x = _extract_clinic_tensor(
+            kwargs,
+            expect_tokens=self.clinic_num_tokens,
+            expect_dim=self.input_dim,
+        )
+        return self.risk_head(x.reshape(x.shape[0], -1))
 
 
 MLP_CLINIC = MLPClinic

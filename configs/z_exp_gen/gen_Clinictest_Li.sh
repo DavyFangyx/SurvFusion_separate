@@ -13,9 +13,15 @@ CLINICS=(
     L0
     L1
     L2
-    L4
     L3
+    L4
     L5
+    D0
+    D1
+    D2
+    D3
+    D4
+    D5
 )
 
 MODELS=(

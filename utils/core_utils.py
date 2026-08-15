@@ -245,6 +245,33 @@ def _init_optim(args, model):
 
     return optimizer
 
+
+def _infer_clinic_shape(clinic_dir, check_n=20):
+    """Infer clinic token count and feature dim from serialized tensors."""
+    import glob
+
+    paths = sorted(glob.glob(os.path.join(clinic_dir, "*.pt")))
+    if not paths:
+        raise FileNotFoundError(f"No .pt under {clinic_dir}")
+
+    def _shape_of(path):
+        tensor = torch.load(path, map_location="cpu")
+        if isinstance(tensor, dict):
+            tensor = tensor.get("features", next(iter(tensor.values())))
+        tensor = tensor.float()
+        if tensor.dim() == 1:
+            return 1, int(tensor.shape[0])
+        if tensor.dim() == 2:
+            return int(tensor.shape[0]), int(tensor.shape[1])
+        raise ValueError(f"Unsupported clinic tensor shape {tuple(tensor.shape)} in {path}")
+
+    ref_shape = _shape_of(paths[0])
+    for path in paths[1:check_n]:
+        cur_shape = _shape_of(path)
+        if cur_shape != ref_shape:
+            raise ValueError(f"Clinic shape mismatch: {ref_shape} vs {cur_shape} ({path})")
+    return ref_shape
+
 def _init_model(args, current_fold=None):
 
     print('\nInit Model...', end=' ')
@@ -263,19 +290,12 @@ def _init_model(args, current_fold=None):
         omics_input_dim = 0
     gene_fm_input_dim = 3072
 
-    # For prompt-clinic modalities, infer the number of clinic tokens dynamically
-    # by peeking at a sample .pt file, so the model handles any [n, 512] shape.
+    clinic_num_tokens = None
+    clinic_feat_dim = None
     _PROMPT_CLINIC_MODALITIES = {'survpgc_f', 'survgc_f', 'survpc_f'} | CLINIC_MODALITIES | TRIMODAL_MODALITIES | POE_MODALITIES
     if args.modality in _PROMPT_CLINIC_MODALITIES:
-        import glob as _glob
-        _clinic_files = _glob.glob(os.path.join(args.clinic_dir, '*.pt'))
-        if not _clinic_files:
-            raise FileNotFoundError(
-                f"No .pt files found in clinic_dir '{args.clinic_dir}'. "
-                "Cannot infer clinic_num_tokens."
-            )
-        clinic_num_tokens = torch.load(_clinic_files[0]).shape[0]
-        print(f'clinic_num_tokens inferred from data: {clinic_num_tokens}')
+        clinic_num_tokens, clinic_feat_dim = _infer_clinic_shape(args.clinic_dir)
+        print(f"[clinic] dir={args.clinic_dir} tokens={clinic_num_tokens} feat_dim={clinic_feat_dim}")
 
     if args.modality == "mlp_gene":
         model_dict = {
@@ -357,6 +377,7 @@ def _init_model(args, current_fold=None):
     elif args.modality == 'survpgc_f':
         model_dict = {
             'num_classes': args.n_classes,
+            'clinic_embedding_dim': clinic_feat_dim,
             'clinic_num_tokens': clinic_num_tokens,
             'wsi_embedding_dim': args.encoding_dim,
         }
@@ -372,6 +393,7 @@ def _init_model(args, current_fold=None):
     elif args.modality == "survpc_f":
         model_dict = {
             'num_classes': args.n_classes,
+            'clinic_embedding_dim': clinic_feat_dim,
             'clinic_num_tokens': clinic_num_tokens,
             'wsi_embedding_dim': args.encoding_dim,
         }
@@ -386,12 +408,16 @@ def _init_model(args, current_fold=None):
         model = MLPPC_concat(**model_dict)
 
     elif args.modality == "survgc_f":
-        model_dict = {'num_classes': args.n_classes, 'clinic_num_tokens': clinic_num_tokens}
+        model_dict = {
+            'num_classes': args.n_classes,
+            'clinic_embedding_dim': clinic_feat_dim,
+            'clinic_num_tokens': clinic_num_tokens,
+        }
         model = SurvGC_F(**model_dict)
 
     elif args.modality == 'mlp_clinic_flatten':
         model_dict = {
-            'input_dim': 512,
+            'input_dim': clinic_feat_dim,
             'n_classes': args.n_classes,
             'clinic_num_tokens': clinic_num_tokens,
             'dropout': 0.1,
@@ -401,7 +427,7 @@ def _init_model(args, current_fold=None):
 
     elif args.modality == 'mlp_clinic_mean':
         model_dict = {
-            'input_dim': 512,
+            'input_dim': clinic_feat_dim,
             'n_classes': args.n_classes,
             'clinic_num_tokens': clinic_num_tokens,
             'dropout': 0.1,
@@ -411,7 +437,7 @@ def _init_model(args, current_fold=None):
 
     elif args.modality == 'snn_clinic_mean':
         model_dict = {
-            "input_dim": 512,
+            "input_dim": clinic_feat_dim,
             'n_classes': args.n_classes,
             'clinic_num_tokens': clinic_num_tokens,
             'model_size_omic': args.single_model_size if args.single_model_size in {"small", "big"} else "small",
@@ -421,7 +447,7 @@ def _init_model(args, current_fold=None):
 
     elif args.modality == 'snn_clinic_flatten':
         model_dict = {
-            "input_dim": 512,
+            "input_dim": clinic_feat_dim,
             'n_classes': args.n_classes,
             'clinic_num_tokens': clinic_num_tokens,
             'model_size_omic': args.single_model_size if args.single_model_size in {"small", "big"} else "small",
@@ -430,13 +456,14 @@ def _init_model(args, current_fold=None):
         model = SNNClinic(**model_dict)
 
     elif args.modality == 'clinic_cox':
-        model_dict = {'input_dim': 512, 'clinic_num_tokens': clinic_num_tokens}
+        model_dict = {'input_dim': clinic_feat_dim, 'clinic_num_tokens': clinic_num_tokens}
         model = CoxClinic(**model_dict)
 
     elif args.modality == 'survfusion_separate':
         model_dict = {
             'num_classes': args.n_classes,
             'wsi_embedding_dim': args.encoding_dim,
+            'clinic_embedding_dim': clinic_feat_dim,
             'training_stage': 'stage1',
             'fusion_type': args.fusion_type,
             'num_heads': args.num_heads,
@@ -450,6 +477,7 @@ def _init_model(args, current_fold=None):
         model_dict = {
             'num_classes': args.n_classes,
             'wsi_embedding_dim': args.encoding_dim,
+            'clinic_embedding_dim': clinic_feat_dim,
             'num_heads': args.num_heads,
         }
         model = SurvFusionNoAlign(**model_dict)
@@ -458,6 +486,7 @@ def _init_model(args, current_fold=None):
         model_dict = {
             'num_classes': args.n_classes,
             'wsi_embedding_dim': args.encoding_dim,
+            'clinic_embedding_dim': clinic_feat_dim,
             'num_heads': args.num_heads,
         }
         model = SurvFusionJoint(**model_dict)
@@ -519,6 +548,7 @@ def _init_model(args, current_fold=None):
     elif args.modality == 'survtri_poe_vae':
         model_dict = {
             'clinic_num_tokens': clinic_num_tokens,
+            'clinic_embedding_dim': clinic_feat_dim,
             'wsi_embedding_dim': args.encoding_dim,
             'latent_dim': 128,
             'mmhid': args.poe_mmhid,
@@ -1719,7 +1749,7 @@ def _train_val_test(datasets, cur, args):
     loss_fn = _init_loss_function(args)
 
     if args.modality in POE_MODALITIES and args.bag_loss != 'cox_surv':
-        raise ValueError("survtri_poe_vae currently supports only `cox_surv`.")
+        raise ValueError(f"{args.modality} currently supports only `cox_surv`.")
 
     #----> init model
     model = _init_model(args, current_fold=cur)

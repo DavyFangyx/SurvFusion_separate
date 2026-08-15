@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import csv
 import math
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -82,6 +83,18 @@ KIND_CONFIG = {
         "model_specs": POE_MODEL_SPECS,
         "type_order": POE_TYPE_ORDER,
     },
+}
+
+POE_SINGLE_PATTERN = re.compile(
+    r"^(?P<study>tcga_[a-z0-9]+)__.*__(?P<modality>[PCG])__survtri_poe_vae_(?P<variant>[BC])$"
+)
+POE_SINGLE_LABELS = {
+    ("B", "P"): "ModelB(P)",
+    ("B", "C"): "ModelB(C)",
+    ("B", "G"): "ModelB(G)",
+    ("C", "P"): "ModelC(P)",
+    ("C", "C"): "ModelC(C)",
+    ("C", "G"): "ModelC(G)",
 }
 
 
@@ -186,6 +199,59 @@ def collect_kind(results_root: Path, kind: str) -> dict[str, dict[str, str]]:
     return study_to_model_text
 
 
+def collect_poe_single_baselines(results_root: Path) -> pd.DataFrame:
+    label_to_study_text: dict[str, dict[str, str]] = {}
+
+    for study_dir in sorted(results_root.glob("*_poe_single_model_val")):
+        if not study_dir.is_dir():
+            continue
+        print(f"[KIND] poe_single | {study_dir.name}")
+
+        for csv_path in sorted(study_dir.rglob("test_result.csv")):
+            experiment_dir = csv_path.parent.parent
+            match = POE_SINGLE_PATTERN.fullmatch(experiment_dir.name)
+            if match is None:
+                continue
+
+            study = match.group("study")
+            modality = match.group("modality")
+            variant = match.group("variant")
+            label = POE_SINGLE_LABELS.get((variant, modality))
+            if label is None:
+                continue
+
+            stats = load_cindex_stats(csv_path)
+            if stats is None:
+                continue
+
+            mean, std = stats
+            label_to_study_text.setdefault(label, {})[study] = f"{mean:.4f} ± {std:.4f}"
+
+    if not label_to_study_text:
+        return pd.DataFrame(columns=["model_type", "model", *STUDY_ORDER])
+
+    rows: list[dict[str, object]] = []
+    ordered_labels = [
+        "ModelB(P)",
+        "ModelB(C)",
+        "ModelB(G)",
+        "ModelC(P)",
+        "ModelC(C)",
+        "ModelC(G)",
+    ]
+    for label in ordered_labels:
+        row: dict[str, object] = {
+            "model_type": "Ours",
+            "model": label,
+        }
+        study_map = label_to_study_text.get(label, {})
+        for study in STUDY_ORDER:
+            row[study] = study_map.get(study, "-")
+        rows.append(row)
+
+    return pd.DataFrame(rows, columns=["model_type", "model", *STUDY_ORDER])
+
+
 def ensure_clean_csv_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
     for csv_path in path.glob("*.csv"):
@@ -258,6 +324,7 @@ def write_kind_outputs(
 
 def write_combined_outputs(
     matrices: dict[str, pd.DataFrame],
+    poe_single_df: pd.DataFrame,
     output_root: Path,
 ) -> None:
     if not matrices:
@@ -293,7 +360,7 @@ def write_combined_outputs(
         )
         table_df["mean__mean_numeric"] = table_df["mean"].map(parse_mean_from_text)
 
-        ours_mask = table_df["model"].isin(["A", "B", "C"])
+        ours_mask = table_df["model_type"].eq("Ours")
         rank_target_cols = [*selected_studies, "mean"]
         for col in rank_target_cols:
             numeric_col = f"{col}__mean_numeric"
@@ -343,7 +410,16 @@ def write_combined_outputs(
     reduced_studies = [
         study for study in all_study_cols if study not in {"tcga_kich", "tcga_prad", "tcga_read"}
     ]
-    reduced_df = build_ranked_table(base_df, reduced_studies)
+    reduced_source_df = base_df.copy()
+    if poe_single_df is not None and not poe_single_df.empty:
+        for study in reduced_studies:
+            if study not in poe_single_df.columns:
+                poe_single_df[study] = "-"
+        reduced_source_df = pd.concat(
+            [reduced_source_df, poe_single_df[["model_type", "model", *reduced_studies]].copy()],
+            ignore_index=True,
+        )
+    reduced_df = build_ranked_table(reduced_source_df, reduced_studies)
     reduced_path = tables_dir / "cindex汇总表_去除kich_prad_read.csv"
     reduced_df.to_csv(reduced_path, index=False)
     print(f"[WRITE] {reduced_path.relative_to(output_root)}")
@@ -385,7 +461,8 @@ def main() -> None:
             continue
         matrices[kind] = write_kind_outputs(kind, study_to_model_text, args.output_root)
 
-    write_combined_outputs(matrices, args.output_root)
+    poe_single_df = collect_poe_single_baselines(args.results_root)
+    write_combined_outputs(matrices, poe_single_df, args.output_root)
 
     print("Done.")
 

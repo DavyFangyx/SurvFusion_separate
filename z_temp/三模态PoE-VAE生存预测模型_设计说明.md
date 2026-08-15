@@ -16,9 +16,9 @@
 
 | 模态 | 特征提取器 | 输入维度 | 备注 |
 |---|---|---|---|
-| WSI | UNI 1 | (n_patch, 1024) | n_patch 逐病人变化 |
-| Clinic | COACH | (n_c, 512) | n_c 同一实验组内固定，初始化时检测 |
-| Gene | scFoundation | (4, 768) | 固定 |
+| WSI | UNI 1 | `(n_patch, 1024)` | `n_patch` 逐病人变化 |
+| Clinic | COACH | `(n_c, 512)` | `n_c` 同一实验组内固定，初始化时按 `.pt` 文件检测 |
+| Gene | scFoundation | `(4, 768)` | 固定 |
 
 **隐变量维度 d_z = 128，硬编码，不做成超参。**
 
@@ -26,27 +26,44 @@
 
 ## 2. Encoder 设计
 
-### 2.1 Gene / Clinic — Encoder_TRANSFORMER
+### 2.1 Gene / Clinic — 共享结构定义的 TokenSetEncoder
 
-不做输入端降维，保持 d_model=768 直接进 Transformer，仅在输出端投影到 d_z：
+Gene 与 Clinic 走同一种 `TokenSetEncoder` 结构定义，但分别实例化、分别训练，不共享权重。当前实现里：
+
+- Gene 输入 token dim = `768`
+- Clinic 输入 token dim = `512`
+
+#### Gene Encoder
 
 ```
-输入 x: (nfeats, B, 768)   # Gene: nfeats=4；Clinic: nfeats=n_c
+输入: gene_tokens (B, 4, 768)
 
-模块:
-1. 可学习 muQuery, sigmaQuery: (768,)
-2. 拼接 [muQuery, sigmaQuery, x] -> (nfeats+2, B, 768)
-3. TransformerEncoderLayer(d_model=768, nhead=8, dim_feedforward=1024, activation="gelu")
-   num_layers = 1~2
-4. 取输出的前两个 token: mu_token, logvar_token  (B, 768)
-5. mu    = Linear(768, 128)(mu_token)
-   logvar = Linear(768, 128)(logvar_token)
-6. logvar.clamp(min=-4, max=2)
+1. 直接送入 TokenSetEncoder(input_dim=768)
+2. 内部通过 query-style 汇聚得到一组全局表示
+3. 输出 mu_gene, logvar_gene
+4. logvar_gene.clamp(min=-4, max=2)
 
-输出: mu, logvar  shape = (B, 128)
+输出: mu_gene, logvar_gene (B, 128)
 ```
 
-Gene 和 Clinic 共用这一套结构定义，各自单独实例化一份权重（不共享参数），因为 nfeats 不同。
+#### Clinic Encoder
+
+```
+输入: clinic_tokens (B, n_c, 512)
+
+1. 直接送入 TokenSetEncoder(input_dim=512)
+2. 不做额外 512 -> 768 投影
+3. 输出 mu_clinic, logvar_clinic
+4. logvar_clinic.clamp(min=-4, max=2)
+
+输出: mu_clinic, logvar_clinic (B, 128)
+```
+
+说明：
+
+- 当前实现只会动态检测 `n_c`
+- 当前实现不会自动把 Clinic 的最后一维从别的维度投影到 512 或 768
+- 因此 Clinic 输入默认假设为 `(n_c, 512)`
 
 ### 2.2 WSI — MIL Resampler + 复用 Encoder_TRANSFORMER
 
@@ -55,16 +72,20 @@ WSI 编码器改为两段级联结构。第一段使用 WSI 专属的 MIL Resamp
 #### 第一段：MIL Resampler（WSI 专属，不与 Gene / Clinic 共享权重）
 
 ```
-输入: patches (B, n_patch, 768), padding_mask
+输入: patches (B, n_patch, 1024), padding_mask
+
+0. 显式输入投影:
+   Linear(1024, 768)
+   - 将原始 UNI patch 特征从 1024 维投到 768 维
 
 1. K 个可学习 query token: (K, 768)
    - K 硬编码为超参，建议默认 K = 16
 
-2. query 对 patches 做 cross-attention（Perceiver-resampler 式）
+2. query 对投影后的 patch tokens 做 cross-attention（Perceiver-resampler 式）
    - attention 计算时必须传入 padding_mask，屏蔽 padding patch
    - 可堆叠 1~2 层 cross-v block
 
-3. （可选，建议保留）K 个输出 token 之间再加 1 层轻量 self-attention
+3. （当前默认已启用）K 个输出 token 之间再加 1 层轻量 self-attention
    - 因为 K 远小于 n_patch，这层计算量可忽略
    - 用于补回 resampler 阶段丢掉的 token-token 交互
 
@@ -147,7 +168,7 @@ Decoder 输入仅为 z，**不拼接任何 condition**：
 
 - decoder_wsi:    output_dim = 768                → 对应 wsi_target (2.3节)
 - decoder_gene:   output_dim = 4 * 768，reshape 为 (4, 768)   → 对应原始 Gene token 特征
-- decoder_clinic: output_dim = n_c * 768，reshape 为 (n_c, 768) → 对应原始 Clinic token 特征
+- decoder_clinic: output_dim = n_c * 512，reshape 为 (n_c, 512) → 对应原始 Clinic token 特征
                   （n_c 在模型初始化时按当前实验组检测值写死到 decoder 里）
 ```
 
@@ -410,7 +431,7 @@ CUDA_VISIBLE_DEVICES=4 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --batch_size_stage1 128 \
   --max_epochs_stage1 32 \
   --poe_scan_stage1_ckpts \
-  --poe_stage1_ckpt_interval 4
+  --poe_stage1_ckpt_interval 4 \
   --max_epochs 25 \
   --warmup_epochs 3 \
   --wandb_mode online \
