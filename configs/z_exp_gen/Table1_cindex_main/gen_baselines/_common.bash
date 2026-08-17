@@ -1,5 +1,5 @@
 #!/bin/bash
-# configs/z_exp_gen/full_model_val/_common.bash
+# configs/z_exp_gen/Table1_cindex_main/gen_baselines/_common.bash
 # 共享的全模型验证 config 生成逻辑。
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
@@ -7,14 +7,14 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 [_common.bash] 这是共享脚本，不会单独生成 config。
 
 请运行下面任一入口脚本：
-  bash configs/z_exp_gen/full_model_val/gen_tcga_brca_full_model_val.sh
-  bash configs/z_exp_gen/full_model_val/gen_tcga_coad_full_model_val.sh
-  bash configs/z_exp_gen/full_model_val/gen_tcga_kich_full_model_val.sh
-  bash configs/z_exp_gen/full_model_val/gen_tcga_kirc_full_model_val.sh
-  bash configs/z_exp_gen/full_model_val/gen_tcga_kirp_full_model_val.sh
-  bash configs/z_exp_gen/full_model_val/gen_tcga_lihc_full_model_val.sh
-  bash configs/z_exp_gen/full_model_val/gen_tcga_prad_full_model_val.sh
-  bash configs/z_exp_gen/full_model_val/gen_tcga_read_full_model_val.sh
+  bash configs/z_exp_gen/Table1_cindex_main/gen_baselines/gen_tcga_brca_full_model_val.sh
+  bash configs/z_exp_gen/Table1_cindex_main/gen_baselines/gen_tcga_coad_full_model_val.sh
+  bash configs/z_exp_gen/Table1_cindex_main/gen_baselines/gen_tcga_kich_full_model_val.sh
+  bash configs/z_exp_gen/Table1_cindex_main/gen_baselines/gen_tcga_kirc_full_model_val.sh
+  bash configs/z_exp_gen/Table1_cindex_main/gen_baselines/gen_tcga_kirp_full_model_val.sh
+  bash configs/z_exp_gen/Table1_cindex_main/gen_baselines/gen_tcga_lihc_full_model_val.sh
+  bash configs/z_exp_gen/Table1_cindex_main/gen_baselines/gen_tcga_prad_full_model_val.sh
+  bash configs/z_exp_gen/Table1_cindex_main/gen_baselines/gen_tcga_read_full_model_val.sh
 EOF
     exit 2
 fi
@@ -25,14 +25,18 @@ generate_full_model_val_configs() {
 
     local script_dir out_dir batch_size clinic_experiment gene_experiment wsi_experiment
     local run_name_wsi run_name_clinic run_name_gene_raw run_name_gene_f run_name_multi gene_tag
-    local file_prefix seq created skipped preset modality_tag fname target run_name
+    local file_prefix exp_group_prefix seq created skipped preset modality_tag fname target run_name
 
-    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
     out_dir="${OUT_DIR:-$script_dir/configs/queue}"
     batch_size="${BATCH_SIZE:-1}"
-    clinic_experiment="${CLINIC_EXPERIMENT:-L4}"
+    clinic_experiment="${CLINIC_EXPERIMENT:-L0}"
     gene_experiment="${GENE_EXPERIMENT:-scFoundation_embedding_cell_norm}"
     wsi_experiment="${WSI_EXPERIMENT:-uni_v1}"
+    exp_group_prefix=""
+    if [[ "$clinic_experiment" == "L0" ]]; then
+        exp_group_prefix="L0_"
+    fi
     case "$gene_experiment" in
         scFoundation_embedding_cell_norm)
             gene_tag="cell_norm"
@@ -56,7 +60,10 @@ generate_full_model_val_configs() {
     run_name_gene_raw="${RUN_NAME_GENE_RAW:-${STUDY}__csvraw}"
     run_name_gene_f="${RUN_NAME_GENE_F:-${STUDY}__${gene_experiment}}"
     run_name_multi="${RUN_NAME_MULTI:-${STUDY}__${clinic_experiment}__${gene_tag}__${wsi_experiment}}"
-    file_prefix="${FILE_PREFIX:-${STUDY#tcga_}_full_model_val}"
+    if [[ "$EXP_GROUP" != "${exp_group_prefix}"* ]]; then
+        EXP_GROUP="${exp_group_prefix}${EXP_GROUP}"
+    fi
+    file_prefix="${FILE_PREFIX:-${exp_group_prefix}${STUDY#tcga_}_full_model_val}"
 
     local -a wsi_models=(
         abmil_wsi

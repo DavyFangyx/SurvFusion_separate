@@ -1,12 +1,12 @@
 #!/bin/bash
-# 生成 tcga_lihc 指定特征组合下的全模型验证配置。
+# 生成 tcga_kirc 指定特征组合下的全模型验证配置。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/_common.bash"
 
-STUDY="tcga_lihc"
-EXP_GROUP="${EXP_GROUP:-LIHC_full_model_val}"
+STUDY="tcga_kirc"
+EXP_GROUP="${EXP_GROUP:-L0_KIRC_full_model_val}"
 
 generate_full_model_val_configs

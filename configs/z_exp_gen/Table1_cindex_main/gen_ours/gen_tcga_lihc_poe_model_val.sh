@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/_common.bash"
 
-STUDY="tcga_prad"
-EXP_GROUP="${EXP_GROUP:-PRAD_poe_model_val}"
+STUDY="tcga_lihc"
+EXP_GROUP="${EXP_GROUP:-L0_LIHC_poe_model_val}"
 
 generate_poe_model_val_configs

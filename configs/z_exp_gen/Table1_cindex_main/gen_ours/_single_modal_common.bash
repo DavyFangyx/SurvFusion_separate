@@ -1,5 +1,5 @@
 #!/bin/bash
-# configs/z_exp_gen/poe_model_val/_single_modal_common.bash
+# configs/z_exp_gen/Table1_cindex_main/gen_ours/_single_modal_common.bash
 # 共享的 SurvTriPoEVAE 单模态 B/C 配置生成逻辑。
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
@@ -7,11 +7,11 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 [_single_modal_common.bash] 这是共享脚本，不会单独生成 config。
 
 请运行下面任一入口脚本：
-  bash configs/z_exp_gen/poe_model_val/gen_tcga_brca_poe_single_modal_BC.sh
-  bash configs/z_exp_gen/poe_model_val/gen_tcga_coad_poe_single_modal_BC.sh
-  bash configs/z_exp_gen/poe_model_val/gen_tcga_kirc_poe_single_modal_BC.sh
-  bash configs/z_exp_gen/poe_model_val/gen_tcga_kirp_poe_single_modal_BC.sh
-  bash configs/z_exp_gen/poe_model_val/gen_tcga_lihc_poe_single_modal_BC.sh
+  bash configs/z_exp_gen/Table1_cindex_main/gen_ours/gen_tcga_brca_poe_single_modal_BC.sh
+  bash configs/z_exp_gen/Table1_cindex_main/gen_ours/gen_tcga_coad_poe_single_modal_BC.sh
+  bash configs/z_exp_gen/Table1_cindex_main/gen_ours/gen_tcga_kirc_poe_single_modal_BC.sh
+  bash configs/z_exp_gen/Table1_cindex_main/gen_ours/gen_tcga_kirp_poe_single_modal_BC.sh
+  bash configs/z_exp_gen/Table1_cindex_main/gen_ours/gen_tcga_lihc_poe_single_modal_BC.sh
 EOF
     exit 2
 fi
@@ -22,12 +22,12 @@ generate_poe_single_modal_bc_configs() {
 
     local script_dir out_dir clinic_experiment gene_experiment wsi_experiment
     local batch_size batch_size_stage1
-    local max_epochs max_epochs_stage1 warmup_epochs run_name_base file_prefix
+    local max_epochs max_epochs_stage1 warmup_epochs run_name_base file_prefix exp_group_prefix
     local seq created skipped preset modal fname target modal_tag
 
-    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
     out_dir="${OUT_DIR:-$script_dir/configs/queue}"
-    clinic_experiment="${CLINIC_EXPERIMENT:-L4}"
+    clinic_experiment="${CLINIC_EXPERIMENT:-L0}"
     gene_experiment="${GENE_EXPERIMENT:-scFoundation_embedding_cell_norm}"
     wsi_experiment="${WSI_EXPERIMENT:-uni_v1}"
     batch_size="${BATCH_SIZE:-1}"
@@ -35,9 +35,16 @@ generate_poe_single_modal_bc_configs() {
     max_epochs="${MAX_EPOCHS:-20}"
     max_epochs_stage1="${MAX_EPOCHS_STAGE1:-10}"
     warmup_epochs="${WARMUP_EPOCHS:-3}"
+    exp_group_prefix=""
+    if [[ "$clinic_experiment" == "L0" ]]; then
+        exp_group_prefix="L0_"
+    fi
 
     run_name_base="${RUN_NAME_BASE:-${STUDY}__${clinic_experiment}__cell_norm__${wsi_experiment}}"
-    file_prefix="${FILE_PREFIX:-${STUDY#tcga_}_poe_single_model_val}"
+    if [[ "$EXP_GROUP" != "${exp_group_prefix}"* ]]; then
+        EXP_GROUP="${exp_group_prefix}${EXP_GROUP}"
+    fi
+    file_prefix="${FILE_PREFIX:-${exp_group_prefix}${STUDY#tcga_}_poe_single_model_val}"
 
     local -a poe_presets=(
         survtri_poe_vae_B
