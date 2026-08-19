@@ -1,5 +1,5 @@
 #!/bin/bash
-# 生成 SurvTriPoEVAE A/B/C 的批量配置
+# 生成 SurvTriPoEVAE A/B/C 及 B_nopretrain 消融的批量配置
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -13,6 +13,7 @@ mapfile -t STUDIES < <(PYTHONPATH="$SCRIPT_DIR" python -c 'from dataset_deployme
 PRESETS=(
     survtri_poe_vae_A
     survtri_poe_vae_B
+    survtri_poe_vae_B_nopretrain
     survtri_poe_vae_C
 )
 

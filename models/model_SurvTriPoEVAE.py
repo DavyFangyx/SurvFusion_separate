@@ -9,7 +9,6 @@ from models.model_utils import (
     TokenSetEncoder,
     WSIMILResampler,
     WSITargetPoolingHead,
-    modality_dropout,
     reparameterize,
 )
 
@@ -59,10 +58,6 @@ class SurvTriPoEVAE(nn.Module):
 
         self.training_stage = "stage1" if self.poe_variant in {"A", "B"} else "stage2"
         self.backbone_frozen = False
-        self.selected_modality_mask = torch.tensor(
-            [name in self.selected_modalities for name in self.modality_names],
-            dtype=torch.bool,
-        )
 
         self.wsi_resampler = WSIMILResampler(
             input_dim=wsi_embedding_dim,
@@ -205,12 +200,20 @@ class SurvTriPoEVAE(nn.Module):
             return x_clinic.reshape(x_clinic.shape[0], self.clinic_num_tokens, self.clinic_embedding_dim)
         return x_clinic
 
-    def _build_available_mask(self, batch_size, device):
-        available_mask = self.selected_modality_mask.to(device=device).unsqueeze(0).expand(batch_size, -1).clone()
-        use_dropout = self.training and len(self.selected_modalities) > 1 and (
-            self.training_stage == "stage1" or self.poe_variant == "C"
-        )
-        return modality_dropout(available_mask, self.modality_dropout_prob, training=use_dropout)
+    def _normalize_avail(self, avail, device):
+        if avail is None:
+            raise ValueError("survtri_poe_vae now requires dataloader-provided `avail`.")
+        normalized = []
+        for name in self.modality_names:
+            if name not in avail:
+                raise KeyError(f"Missing modality availability key `{name}`.")
+            value = avail[name]
+            if not torch.is_tensor(value):
+                value = torch.as_tensor(value, dtype=torch.bool, device=device)
+            else:
+                value = value.to(device=device, dtype=torch.bool)
+            normalized.append(value.view(-1))
+        return torch.stack(normalized, dim=1)
 
     def _select_latent_for_survival(self, mu_joint, z_joint):
         if self.training_stage == "stage1":
@@ -221,13 +224,13 @@ class SurvTriPoEVAE(nn.Module):
             return z_joint
         return mu_joint
 
-    def forward(self, x_path, x_omic, x_clinic, wsi_mask=None):
+    def forward(self, x_path, x_omic, x_clinic, wsi_mask=None, avail=None):
         x_omic = self._reshape_gene(x_omic.float())
         x_clinic = self._reshape_clinic(x_clinic.float())
         x_path = x_path.float()
 
+        available_mask = self._normalize_avail(avail, x_path.device)
         batch_size = x_path.shape[0]
-        available_mask = self._build_available_mask(batch_size, x_path.device)
 
         wsi_tokens = self.wsi_resampler(x_path, padding_mask=wsi_mask)
         mu_wsi, logvar_wsi = self.wsi_encoder(wsi_tokens)

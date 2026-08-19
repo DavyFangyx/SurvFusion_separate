@@ -195,6 +195,26 @@ apply_preset() {
                 --batch_size_stage1 "$BATCH_SIZE_STAGE1"
             )
             ;;
+        survtri_poe_vae_B_nopretrain)
+            MODEL="survtri_poe_vae_b_nopretrain"
+            POE_VARIANT="B"
+            BAG_LOSS="cox_surv"
+            RESULTS_SUBDIR="$MODEL"
+            if [ "$SELECTED_MODALITIES" != "wsi,gene,clinic" ]; then
+                RESULTS_SUBDIR="${RESULTS_SUBDIR}__${SELECTED_MODALITIES//,/_}"
+            fi
+            # This ablation skips stage1 pretraining by design, so stage1 args are omitted.
+            EXTRA_ARGS=(
+                --label_dim "$LABEL_DIM"
+                --poe_variant "$POE_VARIANT"
+                --poe_surv_lambda "$POE_SURV_LAMBDA"
+                --poe_modality_dropout "$POE_MODALITY_DROPOUT"
+                --poe_decoder_hidden_dim "$POE_DECODER_HIDDEN_DIM"
+                --poe_mmhid "$POE_MMHID"
+                --poe_beta_target "$POE_BETA_TARGET"
+                --poe_transformer_layers "$POE_TRANSFORMER_LAYERS"
+            )
+            ;;
 
         # ========== SurvFusion 变体 ==========
         survfusion_noalign)

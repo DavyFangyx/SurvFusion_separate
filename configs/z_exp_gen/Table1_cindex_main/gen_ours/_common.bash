@@ -1,6 +1,6 @@
 #!/bin/bash
 # configs/z_exp_gen/Table1_cindex_main/gen_ours/_common.bash
-# 共享的 SurvTriPoEVAE A/B/C 配置生成逻辑。
+# 共享的 SurvTriPoEVAE A/B/C 与 B_nopretrain 配置生成逻辑。
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     cat <<'EOF'
@@ -52,6 +52,7 @@ generate_poe_model_val_configs() {
     local -a poe_presets=(
         survtri_poe_vae_A
         survtri_poe_vae_B
+        survtri_poe_vae_B_nopretrain
         survtri_poe_vae_C
     )
 

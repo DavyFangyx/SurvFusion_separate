@@ -1,6 +1,6 @@
 #!/bin/bash
 # configs/z_exp_gen/Table1_cindex_main/gen_ours/_single_modal_common.bash
-# 共享的 SurvTriPoEVAE 单模态 B/C 配置生成逻辑。
+# 共享的 SurvTriPoEVAE 单模态 B/C 配置生成逻辑，包含 B_nopretrain 消融。
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     cat <<'EOF'
@@ -48,6 +48,7 @@ generate_poe_single_modal_bc_configs() {
 
     local -a poe_presets=(
         survtri_poe_vae_B
+        survtri_poe_vae_B_nopretrain
         survtri_poe_vae_C
     )
     local -a single_modalities=(

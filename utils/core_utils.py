@@ -27,6 +27,8 @@ from models.model_SurvTriSNN_mhsa import SurvTriSNNMHSA
 from models.model_SurvTriMLP_concat import SurvTriMLPConcat
 from models.model_SurvTriMLP_mhsa import SurvTriMLPMHSA
 from models.model_SurvTriPoEVAE import SurvTriPoEVAE
+from models.ablation_models.model_B_nopretrain import SurvTriPoEVAE_BNoPretrain
+from models.model_utils import modality_dropout
 from sksurv.metrics import concordance_index_censored, concordance_index_ipcw, brier_score, integrated_brier_score, cumulative_dynamic_auc
 from sksurv.util import Surv
 
@@ -66,6 +68,8 @@ TRIMODAL_MODALITIES = {
     "survtri_mlp_mhsa",
 }
 POE_MODALITIES = {"survtri_poe_vae"}
+POE_STAGE2_ONLY_MODALITIES = {"survtri_poe_vae_b_nopretrain"}
+POE_ALL_MODALITIES = POE_MODALITIES | POE_STAGE2_ONLY_MODALITIES
 
 
 def _wandb_enabled(args):
@@ -162,6 +166,39 @@ def _get_poe_step_metrics(model, total_loss, kl_value, phase, beta=None):
     if beta is not None:
         metrics["poe/beta"] = float(beta)
     return metrics
+
+
+def _unpack_survtri_poe_vae_batch(device, data):
+    data_WSI = data[0].to(device)
+    data_omics = data[1].to(device)
+    data_clinic = data[2].to(device)
+    y_disc, event_time, censor, clinical_data_list = data[3], data[4], data[5], data[6]
+    if data[7][0, 0] == 1:
+        mask = None
+    else:
+        mask = data[7].to(device=device, dtype=torch.bool)
+    avail = {name: value.to(device=device, dtype=torch.bool) for name, value in data[8].items()}
+    return data_WSI, mask, y_disc, event_time, censor, data_omics, clinical_data_list, data_clinic, avail
+
+
+def _build_survtri_poe_vae_avail(args, model, raw_avail):
+    selected_modalities = tuple(getattr(args, "selected_modalities", "wsi,gene,clinic").split(","))
+    modality_names = ("wsi", "gene", "clinic")
+    selected_mask = torch.tensor([name in selected_modalities for name in modality_names], dtype=torch.bool)
+    selected_mask = selected_mask.to(device=next(iter(raw_avail.values())).device)
+
+    final_mask = torch.stack([raw_avail[name].to(dtype=torch.bool) for name in modality_names], dim=1)
+    final_mask = final_mask & selected_mask.unsqueeze(0)
+
+    use_dropout = (
+        model.training
+        and len(selected_modalities) > 1
+        and (model.training_stage == "stage1" or getattr(args, "poe_variant", None) == "C")
+    )
+    if use_dropout:
+        final_mask = modality_dropout(final_mask, getattr(args, "poe_modality_dropout", 0.2), training=True)
+
+    return {name: final_mask[:, idx] for idx, name in enumerate(modality_names)}
 
 
 
@@ -292,7 +329,11 @@ def _init_model(args, current_fold=None):
 
     clinic_num_tokens = None
     clinic_feat_dim = None
-    _PROMPT_CLINIC_MODALITIES = {'survpgc_f', 'survgc_f', 'survpc_f'} | CLINIC_MODALITIES | TRIMODAL_MODALITIES | POE_MODALITIES
+    _PROMPT_CLINIC_MODALITIES = {
+        'survpgc_f',
+        'survgc_f',
+        'survpc_f',
+    } | CLINIC_MODALITIES | TRIMODAL_MODALITIES | POE_ALL_MODALITIES
     if args.modality in _PROMPT_CLINIC_MODALITIES:
         clinic_num_tokens, clinic_feat_dim = _infer_clinic_shape(args.clinic_dir)
         print(f"[clinic] dir={args.clinic_dir} tokens={clinic_num_tokens} feat_dim={clinic_feat_dim}")
@@ -563,6 +604,25 @@ def _init_model(args, current_fold=None):
         }
         model = SurvTriPoEVAE(**model_dict)
 
+    elif args.modality == 'survtri_poe_vae_b_nopretrain':
+        args.poe_variant = "B"
+        model_dict = {
+            'clinic_num_tokens': clinic_num_tokens,
+            'clinic_embedding_dim': clinic_feat_dim,
+            'wsi_embedding_dim': args.encoding_dim,
+            'latent_dim': 128,
+            'mmhid': args.poe_mmhid,
+            'label_dim': args.label_dim,
+            'decoder_hidden_dim': args.poe_decoder_hidden_dim,
+            'poe_variant': 'B',
+            'poe_surv_lambda': args.poe_surv_lambda,
+            'modality_dropout_prob': args.poe_modality_dropout,
+            'transformer_dropout': args.encoder_dropout,
+            'transformer_layers': args.poe_transformer_layers,
+            'selected_modalities': args.selected_modalities,
+        }
+        model = SurvTriPoEVAE_BNoPretrain(**model_dict)
+
     else:
         raise NotImplementedError
 
@@ -590,7 +650,7 @@ def _init_loaders(args, train_split, val_split, test_split):
     """
 
     print('\nInit Loaders...', end=' ')
-    disable_cox_batch_override = args.modality in POE_MODALITIES
+    disable_cox_batch_override = args.modality in POE_ALL_MODALITIES
     if train_split:
         train_loader = _get_split_loader(
             args,
@@ -811,7 +871,13 @@ def _process_data_and_forward(args, model, modality, device, data):
         - clinical_data_list : List
     
     """
-    data_WSI, mask, y_disc, event_time, censor, data_omics, clinical_data_list, data_clinic = _unpack_data(modality, device, data)
+    if modality in POE_ALL_MODALITIES:
+        data_WSI, mask, y_disc, event_time, censor, data_omics, clinical_data_list, data_clinic, avail = \
+            _unpack_survtri_poe_vae_batch(device, data)
+        avail = _build_survtri_poe_vae_avail(args, model, avail)
+    else:
+        data_WSI, mask, y_disc, event_time, censor, data_omics, clinical_data_list, data_clinic = _unpack_data(modality, device, data)
+        avail = None
 
     if modality in ["mcat"]:
         out = model(
@@ -897,12 +963,13 @@ def _process_data_and_forward(args, model, modality, device, data):
             x_clinic=data_clinic.to(device),
         )
 
-    elif modality in POE_MODALITIES:
+    elif modality in POE_ALL_MODALITIES:
         out = model(
             x_path=data_WSI.to(device),
             x_omic=data_omics.to(device),
             x_clinic=data_clinic.to(device),
             wsi_mask=mask,
+            avail=avail,
         )
 
     elif modality in CLINIC_MODALITIES:
@@ -1011,7 +1078,7 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
     all_event_times = []
     all_clinical_data = []
     beta = _get_poe_beta(args, epoch) if modality in POE_MODALITIES else None
-    poe_epoch_monitor = _init_poe_epoch_monitor() if modality in POE_MODALITIES else None
+    poe_epoch_monitor = _init_poe_epoch_monitor() if modality in POE_ALL_MODALITIES else None
     surv_loss_total = 0.0
     surv_count = 0
 
@@ -1045,7 +1112,7 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
             survival_loss = loss_fn(h=h, t=event_time, c=censor)
             surv_loss_total += survival_loss.item() * event_time.shape[0]
             surv_count += event_time.shape[0]
-            if modality in POE_MODALITIES:
+            if modality in POE_ALL_MODALITIES:
                 loss = model.combine_loss(survival_loss, beta=beta)
             else:
                 loss = survival_loss
@@ -1069,7 +1136,7 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
         if modality in ["survfusion_noalign", "survfusion_joint"]:
             processed = min(batch_idx * loader.batch_size, len(loader.dataset))
             print("batch: {}, loss: {:.3f}".format(processed, loss.item()))
-        elif modality in POE_MODALITIES:
+        elif modality in POE_ALL_MODALITIES:
             cached = model.get_cached_outputs()
             _update_poe_epoch_monitor(poe_epoch_monitor, cached)
             _wandb_log(
@@ -1105,7 +1172,7 @@ def _train_loop_survival(args, epoch, model, modality, loader, optimizer, schedu
 
     print('Epoch: {}, train_loss: {:.4f}, train_c_index: {:.4f}'.format(epoch, total_loss, c_index))
 
-    if modality in POE_MODALITIES:
+    if modality in POE_ALL_MODALITIES:
         epoch_metrics = _finalize_poe_epoch_monitor(poe_epoch_monitor)
         epoch_metrics["epoch"] = epoch
         epoch_metrics["train/c_index"] = c_index
@@ -1239,8 +1306,13 @@ def _summary(args, dataset_factory, model, modality, loader, loss_fn, survival_t
     count = 0
     with torch.no_grad():
         for data in loader:
-
-            data_WSI, mask, y_disc, event_time, censor, data_omics, clinical_data_list, data_clinic = _unpack_data(modality, device, data)
+            if modality in POE_ALL_MODALITIES:
+                data_WSI, mask, y_disc, event_time, censor, data_omics, clinical_data_list, data_clinic, avail = \
+                    _unpack_survtri_poe_vae_batch(device, data)
+                avail = _build_survtri_poe_vae_avail(args, model, avail)
+            else:
+                data_WSI, mask, y_disc, event_time, censor, data_omics, clinical_data_list, data_clinic = _unpack_data(modality, device, data)
+                avail = None
 
             if modality in ["mcat"]:
                 h = model(
@@ -1325,12 +1397,13 @@ def _summary(args, dataset_factory, model, modality, loader, loss_fn, survival_t
                     x_clinic=data_clinic.to(device),
                 )
 
-            elif modality in POE_MODALITIES:
+            elif modality in POE_ALL_MODALITIES:
                 h = model(
                     x_path=data_WSI.to(device),
                     x_omic=data_omics.to(device),
                     x_clinic=data_clinic.to(device),
                     wsi_mask=mask,
+                    avail=avail,
                 )
 
             elif modality in ['mlp_clinic_mean', 'mlp_clinic_flatten', 'snn_clinic_mean', 'snn_clinic_flatten', 'clinic_cox']:
@@ -1355,7 +1428,7 @@ def _summary(args, dataset_factory, model, modality, loader, loss_fn, survival_t
                 loss = loss_fn(input1=tensor1, input2=tensor2, h=h, y=y_disc, t=event_time, c=censor)
             elif args.bag_loss == 'cox_surv':
                 survival_loss = loss_fn(h=h, t=event_time, c=censor)
-                if modality in POE_MODALITIES:
+                if modality in POE_ALL_MODALITIES:
                     loss = model.combine_loss(survival_loss, beta=args.poe_beta_target)
                 else:
                     loss = survival_loss
@@ -1450,12 +1523,14 @@ def _train_loop_stage1_poe(args, epoch, model, loader, optimizer, scheduler):
 
     for batch_idx, data in enumerate(loader):
         optimizer.zero_grad()
-        data_WSI, mask, _, _, _, data_omics, _, data_clinic = _unpack_data("survtri_poe_vae", device, data)
+        data_WSI, mask, _, _, _, data_omics, _, data_clinic, avail = _unpack_survtri_poe_vae_batch(device, data)
+        avail = _build_survtri_poe_vae_avail(args, model, avail)
         model(
             x_path=data_WSI,
             x_omic=data_omics,
             x_clinic=data_clinic,
             wsi_mask=mask,
+            avail=avail,
         )
         vae_loss = model.get_vae_loss(beta=beta)
         vae_loss.backward()
@@ -1502,12 +1577,14 @@ def _val_loop_stage1_poe(args, epoch, model, loader):
 
     with torch.no_grad():
         for data in loader:
-            data_WSI, mask, _, _, _, data_omics, _, data_clinic = _unpack_data("survtri_poe_vae", device, data)
+            data_WSI, mask, _, _, _, data_omics, _, data_clinic, avail = _unpack_survtri_poe_vae_batch(device, data)
+            avail = _build_survtri_poe_vae_avail(args, model, avail)
             model(
                 x_path=data_WSI,
                 x_omic=data_omics,
                 x_clinic=data_clinic,
                 wsi_mask=mask,
+                avail=avail,
             )
             total_loss += model.get_vae_loss(beta=beta).item()
 
@@ -1748,7 +1825,7 @@ def _train_val_test(datasets, cur, args):
     #----> init loss function
     loss_fn = _init_loss_function(args)
 
-    if args.modality in POE_MODALITIES and args.bag_loss != 'cox_surv':
+    if args.modality in POE_ALL_MODALITIES and args.bag_loss != 'cox_surv':
         raise ValueError(f"{args.modality} currently supports only `cox_surv`.")
 
     #----> init model
@@ -1880,6 +1957,13 @@ def _train_val_test(datasets, cur, args):
                 cur,
                 stage_name="stage2",
                 job_type=stage2_job_type,
+            )
+        elif args.modality in POE_STAGE2_ONLY_MODALITIES:
+            init_wandb_run(
+                args,
+                cur,
+                stage_name="stage2",
+                job_type="stage2_survival_finetune",
             )
         else:
             init_wandb_run(

@@ -47,6 +47,7 @@ def _process_args():
     parser.add_argument('--clinic_dir', type=str, default=DEFAULT_CLINIC_DIR, help='Path to dir with clinical embedding')
     parser.add_argument('--gene_dir', type=str, default=DEFAULT_GENE_DIR, help='Path to dir with gene foundation model embedding')
     parser.add_argument('--clinical_file', type=str, default=None, help='Path to study clinical CSV')
+    parser.add_argument('--data_pack_dir', type=str, default=None, help='Path to HGCN graph package directory')
 
     parser.add_argument('--num_patches', type=int, default=4096, help='number of patches')
     parser.add_argument('--label_col', type=str, default="survival_months", help='type of survival (OS, DSS, PFI, PFS)')
@@ -66,6 +67,7 @@ def _process_args():
     parser.add_argument('--k_end', type=int, default=-1, help='end fold (default: -1, first fold)')
     parser.add_argument('--split_dir', type=str, default=None, help='manually specify the set of splits to use, '
                     +'instead of infering from the task and label_frac argument (default: None)')
+    parser.add_argument('--split_csv', type=str, default=None, help='single split csv for baselines that use one fold file')
     parser.add_argument('--which_splits', type=str, default="5foldcv", help='where are splits')
         
     #----> training related
@@ -192,6 +194,9 @@ def _process_args():
                             'survtri_mlp_concat',
                             'survtri_mlp_mhsa',
                             'survtri_poe_vae',
+                            'survtri_poe_vae_b_nopretrain',
+                            'hgcn',
+                            'flex_moe',
                             # ablation WSI+C
                             'survpc_f',
                             # ablation G+C

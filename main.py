@@ -12,6 +12,7 @@ from utils.core_utils import _train_val_test
 from utils.file_utils import _save_pkl
 from utils.general_utils import _get_start_end, _prepare_for_experiment
 from utils.wandb_utils import finish_wandb_run
+from models.missing_modality_baselines.runner import run_hgcn_from_args, run_flex_moe_from_args
 
 from utils.process_args import _process_args
 from warnings import simplefilter
@@ -113,6 +114,21 @@ if __name__ == "__main__":
 
     #----> read the args
     args = _process_args()
+
+    if args.modality == "hgcn":
+        run_hgcn_from_args(args)
+        end = timer()
+        print("finished!")
+        print("end script")
+        print('Script Time: %f seconds' % (end - start))
+        raise SystemExit(0)
+    if args.modality == "flex_moe":
+        run_flex_moe_from_args(args)
+        end = timer()
+        print("finished!")
+        print("end script")
+        print('Script Time: %f seconds' % (end - start))
+        raise SystemExit(0)
     
     #----> Prep
     args = _prepare_for_experiment(args)
@@ -143,6 +159,7 @@ if __name__ == "__main__":
             "survtri_mlp_concat",
             "survtri_mlp_mhsa",
             "survtri_poe_vae",
+            "survtri_poe_vae_b_nopretrain",
         ) else False,
         is_survpc = True if args.modality == "survpc" else False,
         is_survpc_f = True if args.modality == "survpc_f" else False,

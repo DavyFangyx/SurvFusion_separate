@@ -533,6 +533,29 @@ def _collate_survpgc_f(batch):
 
     return [img, omic, clinic, label, event_time, c, clinical_data_list, mask]
 
+
+def _collate_survtri_poe_vae(batch):
+    img = torch.stack([item[0] for item in batch])
+    omic = torch.stack([item[1] for item in batch])
+    clinic = torch.stack([item[2] for item in batch])
+
+    label = torch.LongTensor([item[3].long() for item in batch])
+    event_time = torch.FloatTensor([item[4] for item in batch])
+    c = torch.FloatTensor([item[5] for item in batch])
+
+    clinical_data_list = []
+    for item in batch:
+        clinical_data_list.append(item[6])
+
+    mask = torch.stack([item[7] for item in batch], dim=0)
+    avail = {
+        "wsi": torch.tensor([item[8]["wsi"] for item in batch], dtype=torch.bool),
+        "gene": torch.tensor([item[8]["gene"] for item in batch], dtype=torch.bool),
+        "clinic": torch.tensor([item[8]["clinic"] for item in batch], dtype=torch.bool),
+    }
+
+    return [img, omic, clinic, label, event_time, c, clinical_data_list, mask, avail]
+
 def _collate_survpc_f(batch):
     img = torch.stack([item[0] for item in batch])
     clinic = torch.stack([item[1] for item in batch])
@@ -659,9 +682,10 @@ def _get_split_loader(args, split_dataset, training = False, testing = False, we
         "survtri_snn_mhsa",
         "survtri_mlp_concat",
         "survtri_mlp_mhsa",
-        "survtri_poe_vae",
     ]:
         collate_fn = _collate_survpgc_f
+    elif args.modality in ["survtri_poe_vae", "survtri_poe_vae_b_nopretrain"]:
+        collate_fn = _collate_survtri_poe_vae
     elif args.modality in ["survpc", "survpc_f", "mlppc_concat"]:
         collate_fn = _collate_survpc_f
     elif args.modality == "survgc_f":

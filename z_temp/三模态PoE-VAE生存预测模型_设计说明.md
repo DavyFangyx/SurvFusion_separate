@@ -217,7 +217,7 @@ L = L_rec + β(t) * J
 
 - 概率 p = 0.2，每个模态独立 Bernoulli 采样是否丢弃（每个 batch 内每个样本独立）
 - 约束：任意样本不能三个模态同时被丢弃，至少保留一个
-
+- 实现：在 dataloader 中，avail 先从 dataloader 进入，再按原来的 selected_modalities 规则做同一个 modality_dropout()
 ---
 
 ## 8. 训练流程与代码组织
@@ -371,20 +371,13 @@ CUDA_VISIBLE_DEVICES=0 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   `splits/5foldcv/<study>/splits_*.csv`
 
 
-下面示例使用 `tcga_lihc`、`P/uni_v1`、`C/L4`、`G/scFoundation_embedding_cell_norm`，并只跑 `fold 0` 进行单折测试。
+下面示例使用 `tcga_lihc`、`P/uni_v1`、`C/L0`、`G/scFoundation_embedding_cell_norm`，并只跑 `fold 0` 进行单折测试。
 
 ### 12.1 Model_A：VAE 预训练 + 冻结 backbone + 线性 Cox probe
 
 ```bash
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 conda activate SurvPGC
-离线模式
-  --wandb_mode offline \
-在线模式
-  --wandb_mode online \
-  --wandb_project SurvPGC_MultiVAE \
-第一次用这个环境时执行：
-/data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python -m wandb login
 
 CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_lihc \
@@ -396,7 +389,7 @@ CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --encoding_dim 1024 \
   --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/P/uni_v1 \
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
-  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L0 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
   --k 5 --k_start 0 --k_end 1 \
   --batch_size 128 \
@@ -407,7 +400,7 @@ CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --wandb_mode online \
   --wandb_project SurvPGC_MultiVAE \
   --exp_group poe_vae_test \
-  --run_name model_A_OnlyC
+  --run_name model_A_DropTest
 ```
 
 ### 12.2 Model_B：VAE 预训练 + `fuse_fc + classifier + Cox`
@@ -415,29 +408,28 @@ CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 ```bash
 cd /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init
 
-CUDA_VISIBLE_DEVICES=4 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
+CUDA_VISIBLE_DEVICES=5 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.py \
   --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant B \
+  --selected_modalities wsi,gene,clinic \
   --bag_loss cox_surv \
   --label_dim 1 \
   --encoding_dim 1024 \
   --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/P/uni_v1 \
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
-  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L0 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
   --k 5 \
   --batch_size 128 \
   --batch_size_stage1 128 \
-  --max_epochs_stage1 32 \
-  --poe_scan_stage1_ckpts \
-  --poe_stage1_ckpt_interval 4 \
+  --max_epochs_stage1 20 \
   --max_epochs 25 \
   --warmup_epochs 3 \
   --wandb_mode online \
   --wandb_project SurvPGC_MultiVAE \
   --exp_group poe_vae_test \
-  --run_name model_B_STAGE1test
+  --run_name model_B_DropTest2
 ```
 
 ### 12.3 Model_C：联合训练 `L_rec + βJ + λL_surv`
@@ -449,13 +441,13 @@ CUDA_VISIBLE_DEVICES=5 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --study tcga_lihc \
   --modality survtri_poe_vae \
   --poe_variant C \
-  --selected_modalities clinic \
+  --selected_modalities wsi,gene,clinic \
   --bag_loss cox_surv \
   --label_dim 1 \
   --encoding_dim 1024 \
   --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/P/uni_v1 \
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
-  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L0 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
   --k 5 --k_start 0 --k_end 1 \
   --batch_size 128 \
@@ -466,7 +458,7 @@ CUDA_VISIBLE_DEVICES=5 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
   --wandb_mode online \
   --wandb_project SurvPGC_MultiVAE \
   --exp_group poe_vae_test \
-  --run_name model_C_OnlyC
+  --run_name model_C_DropTest
 ```
 
 ### 12.4 说明
@@ -499,6 +491,14 @@ CUDA_VISIBLE_DEVICES=5 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main.
 - ModelB stage1 扫描：
 --poe_scan_stage1_ckpts
 --poe_stage1_ckpt_interval 5
+- wandb模式：
+离线模式
+  --wandb_mode offline \
+在线模式
+  --wandb_mode online \
+  --wandb_project SurvPGC_MultiVAE \
+第一次用这个环境时执行：
+/data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python -m wandb login
 
 ## 13. Optuna 调参体系
 
@@ -581,7 +581,7 @@ CUDA_VISIBLE_DEVICES=1 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_
   --encoding_dim 1024 \
   --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/P/uni_v1 \
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
-  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L0 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
   --optuna_fold_mode mean_cv \
   --k 5 \
@@ -612,7 +612,7 @@ CUDA_VISIBLE_DEVICES=6 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_
   --encoding_dim 1024 \
   --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/P/uni_v1 \
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
-  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L0 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
   --optuna_fold_mode mean_cv \
   --k 5 \
@@ -643,7 +643,7 @@ CUDA_VISIBLE_DEVICES=3 /data/fangyuxuan/miniconda3/envs/SurvPGC/bin/python main_
   --encoding_dim 1024 \
   --data_root_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/P/uni_v1 \
   --gene_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/G/scFoundation_embedding_cell_norm \
-  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L4 \
+  --clinic_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/SurvPGC_Workspace/tcga_lihc/C/L0 \
   --split_dir /data/fangyuxuan/projects/medical_dl/SurvPGC_github_init/splits/5foldcv/tcga_lihc \
   --optuna_fold_mode mean_cv \
   --k 5 \

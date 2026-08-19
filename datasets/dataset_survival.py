@@ -15,6 +15,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 
+from dataset_deployment.modality_availability import get_case_availability
 from dataset_deployment.workspace_features import build_case_feature_index, resolve_case_feature_path
 from utils.general_utils import _series_intersection
 
@@ -739,6 +740,7 @@ class SurvivalDataset(Dataset):
         self.num_pathways = len(omic_names)
         self.sample = sample
         self._feature_path_cache = {}
+        self._availability_cache = {}
 
         # for weighted sampling
         self.slide_cls_id_prep()
@@ -862,10 +864,14 @@ class SurvivalDataset(Dataset):
             "survtri_mlp_concat",
             "survtri_mlp_mhsa",
             "survtri_poe_vae",
+            "survtri_poe_vae_b_nopretrain",
         ]:
             patch_features, mask = self._load_wsi_embs_from_path(self.data_dir, slide_ids)
             gene_features = self._load_gene_embs_from_path(self.gene_dir, slide_ids)
             clinic_features = self._load_clinic_embs_from_prompt(self.clinic_dir, slide_ids)
+            if self.modality in {"survtri_poe_vae", "survtri_poe_vae_b_nopretrain"}:
+                avail = self._get_case_avail(case_id)
+                return (patch_features, gene_features, clinic_features, label, event_time, c, clinical_data, mask, avail)
             return (patch_features, gene_features, clinic_features, label, event_time, c, clinical_data, mask)
 
         elif self.modality == "survgc_f":
@@ -910,6 +916,15 @@ class SurvivalDataset(Dataset):
         clinical_data = self.get_clinical_data(case_id)
 
         return label, event_time, c, slide_ids, clinical_data, case_id
+
+    def _get_case_avail(self, case_id):
+        normalized_case_id = str(case_id).strip().upper()[:12]
+        if normalized_case_id not in self._availability_cache:
+            self._availability_cache[normalized_case_id] = get_case_availability(
+                normalized_case_id,
+                self.study_name,
+            )
+        return dict(self._availability_cache[normalized_case_id])
     
     def _load_wsi_embs_from_path(self, data_dir, slide_ids):
         """

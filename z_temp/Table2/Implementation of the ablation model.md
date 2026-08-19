@@ -54,7 +54,7 @@
 - `bag_loss = cox_surv`，`label_dim = 1`。
 - 各基线自带的预测头（HGCN 的 Cox 头、Flex-MoE 的分类头、MultiVae 的
   生成式目标下游）**一律替换为上述统一头**，并在实现文件顶部注明
-  "原实现的 XXX head 已替换为项目统一 Cox head（为保证可比性）"。
+  "原实现的 XXX head 已替换为 项目统一 Cox head（为保证可比性）"。
 - 生成式基线（MultiVae 系）保留自身的重建 + KL 目标，
   总 loss = 原目标 + λ_surv * L_cox，λ_surv 取固定值 1.0（不调参）。
 
